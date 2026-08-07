@@ -3,84 +3,84 @@ import os
 from openai import OpenAI
 
 
-INSTRUCTIONS = '''
-You are the assistant for my personal Obsidian vault.
-Answer questions using only the provided context, which contains
-excerpts from my notes. Mention the source notes you used by their path.
-If the answer is not in the context, say you could not find it in the vault.
-'''
-
-PROMPT_TEMPLATE = '''
-QUESTION: {question}
-
-CONTEXT:
-{context}
-'''.strip()
-
-
 def create_llm_client():
-    # Provider-agnostic: with LLM_BASE_URL set, any OpenAI-compatible server
-    # works (Ollama: http://ollama:11434/v1). Without it, the real OpenAI API.
+    """OpenAI by default; any OpenAI-compatible server (Ollama) when
+    LLM_BASE_URL is set. The api key for local servers is a dummy,
+    because they do not check keys."""
     base_url = os.getenv("LLM_BASE_URL")
     if base_url:
-        return OpenAI(base_url=base_url, api_key=os.getenv("OPENAI_API_KEY", "ollama"))
+        return OpenAI(base_url=base_url, api_key=os.getenv("LLM_API_KEY", "ollama"))
     return OpenAI()
 
 
-class RAGBase:
+class ObsidianRAG:
+    """The retrieval chain in the LangChain shape.
 
-    def __init__(
-        self,
-        search_fn,
-        llm_client=None,
-        instructions=INSTRUCTIONS,
-        prompt_template=PROMPT_TEMPLATE,
-        model=None,
-    ):
-        # search_fn is injected: any callable (query, num_results) -> list of
-        # chunk dicts with "path" and "content". Keeps the RAG logic agnostic
-        # of the retrieval engine, like llm_client keeps it agnostic of the
-        # LLM provider.
-        self.search_fn = search_fn
-        self.llm_client = llm_client or create_llm_client()
-        self.instructions = instructions
-        self.prompt_template = prompt_template
-        self.model = model or os.getenv("LLM_MODEL", "gpt-5.4-mini")
+    A retriever supplies Documents and the llm answers only from them.
+    invoke(question) returns the answer plus the source documents, so
+    any interface can show citations without knowing about retrieval.
+    """
 
-    def search(self, query, num_results=5):
-        return self.search_fn(query, num_results=num_results)
+    INSTRUCTIONS = """
+    You are the assistant for a personal Obsidian vault.
 
-    def build_context(self, search_results):
-        lines = []
+    Answer the question using only the provided context,
+    which contains parts of the owner's notes. Each part starts with its source path.
 
-        for doc in search_results:
-            lines.append(doc["path"])
-            lines.append(doc["content"])
-            lines.append("")
+    Be direct and concise. After the answer, list the notes you actually
+    used, one per line, in the form:
+    Sources:
+    - <path>
 
-        return "\n".join(lines).strip()
+    If the context does not contain the answer, say you could not find it
+    in the vault, and do not invent anything.
 
-    def build_prompt(self, query, search_results):
-        context = self.build_context(search_results)
-        return self.prompt_template.format(
-            question=query, context=context
+    You may combine information from multiple excerpts and state what
+    follows from them. Only say you could not find it when the context
+    contains nothing relevant to the question.
+
+    """.strip()
+
+    PROMPT_TEMPLATE = """
+    CONTEXT:
+    {context}
+
+    QUESTION: {question}
+    """.strip()
+
+
+    def __init__(self, retriever, llm_client, model):
+        self.retriever = retriever
+        self.llm_client = llm_client
+        self.model = model
+
+    def build_context(self, documents):
+        """One block per chunk, opened by its source path so the model
+        can cite notes by name."""
+        blocks = [f"source: {d.metadata['source']}\n{d.page_content}"
+                  for d in documents]
+        return "\n\n---\n\n".join(blocks)
+
+    def build_prompt(self, question, documents):
+        return self.PROMPT_TEMPLATE.format(
+            question=question, context=self.build_context(documents)
         )
 
-    def llm(self, prompt):
-        # chat.completions is the API every OpenAI-compatible provider speaks
-        # (OpenAI, Ollama, Groq...); the Responses API used in the course is
-        # OpenAI-only, so it stays out of a multi-provider tool.
+    def invoke(self, question):
+        documents = self.retriever.get_relevant_documents(question)
+        prompt = self.build_prompt(question, documents)
+
         response = self.llm_client.chat.completions.create(
             model=self.model,
+            temperature=0.0,
             messages=[
-                {"role": "system", "content": self.instructions},
+                {"role": "system", "content": self.INSTRUCTIONS},
                 {"role": "user", "content": prompt},
             ],
         )
-        return response
 
-    def rag(self, query):
-        search_results = self.search(query)
-        prompt = self.build_prompt(query, search_results)
-        response = self.llm(prompt)
-        return response.choices[0].message.content
+        return {
+            "answer": response.choices[0].message.content,
+            "source_documents": documents,
+            "usage": response.usage,
+        }

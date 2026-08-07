@@ -32,6 +32,11 @@ reload-app:
 init-db:
 	$(EXEC) python db.py
 
+# rebuild the tables from scratch: ERASES the whole conversation history.
+# The escape hatch for schema changes, never part of normal setup
+reset-db:
+	$(EXEC) python db.py --recreate
+
 # ingest the vault into elasticsearch from the terminal
 ingest:
 	$(EXEC) python ingest.py
@@ -39,7 +44,7 @@ ingest:
 # peek at the last 10 logged conversations in postgres
 check-db:
 	docker compose exec postgres psql -U user -d obsidian_assistant \
-		-c "SELECT id, question, source, cost, timestamp FROM conversations ORDER BY id DESC LIMIT 10;"
+		-c "SELECT id, question, model, cost, response_time, created_at FROM conversations ORDER BY id DESC LIMIT 10;"
 
 # follow the app logs live (ctrl+c to leave)
 logs:

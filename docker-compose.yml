@@ -89,6 +89,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pswd}
       APP_POSTGRES_DB: "obsidian_assistant"
       VAULT_PATH: "/vault"
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-5.4-mini}
       EMBED_MODEL: ${EMBED_MODEL:-all-MiniLM-L6-v2}
       ES_INDEX: ${ES_INDEX:-obsidian_notes}

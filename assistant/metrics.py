@@ -1,59 +1,37 @@
-import time
-from dataclasses import dataclass, field
-from datetime import datetime
+"""What one llm call cost: tokens, dollars and wall time. The price
+table covers the api models; anything unknown (the local ollama models)
+is priced at zero, which is literally true."""
 
-from rag import RAGBase
+from dataclasses import dataclass
+
+# dollars per million tokens: (input, output). Update here when prices
+# or models change; nothing else in the project knows about pricing.
+PRICES = {
+    "gpt-5.4-mini": (0.25, 2.00),
+}
 
 
 @dataclass
-class LLMCallRecord:
+class CallMetrics:
+    """One llm call measured: exactly the shape save_conversation
+    expects, so the app moves this straight into the diary."""
     model: str
-    prompt: str
-    instructions: str
-    answer: str
     prompt_tokens: int
     completion_tokens: int
-    total_tokens: int
     response_time: float
     cost: float
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now().astimezone()
-    )
 
-
-def calculate_cost(model, usage):
-    # Local models (Ollama) cost zero; API models get their rate here.
-    cost = 0
-    if "gpt-5.4-mini" in model:
-        cost = (usage.prompt_tokens * 0.15 + usage.completion_tokens * 0.60) / 1_000_000
-    return cost
-
-
-class RAGWithMetrics(RAGBase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.last_call: LLMCallRecord = None
-
-    def llm(self, prompt):
-        start_time = time.time()
-        response = super().llm(prompt)
-        response_time = time.time() - start_time
-        self._log_response(prompt, response, response_time)
-        return response
-
-    def _log_response(self, prompt, response, response_time):
-        usage = response.usage
-        cost = calculate_cost(self.model, usage)
-
-        self.last_call = LLMCallRecord(
-            model=self.model,
-            prompt=prompt,
-            instructions=self.instructions,
-            answer=response.choices[0].message.content,
+    @classmethod
+    def from_call(cls, model, usage, response_time):
+        """Build from the openai usage object plus the wall time the
+        caller measured around the request."""
+        price_in, price_out = PRICES.get(model, (0.0, 0.0))
+        cost = (usage.prompt_tokens * price_in
+                + usage.completion_tokens * price_out) / 1_000_000
+        return cls(
+            model=model,
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,
-            total_tokens=usage.total_tokens,
             response_time=response_time,
             cost=cost,
         )

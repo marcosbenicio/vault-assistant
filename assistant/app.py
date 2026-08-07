@@ -1,46 +1,101 @@
-import streamlit as st
+"""The face of the assistant: a question box over the vault. Streamlit
+reruns this script on every interaction, so everything expensive lives
+inside the cached build function and the last answer survives reruns in
+the session state."""
 
-from search import hybrid_search
-from metrics import RAGWithMetrics
-from db import save_conversation, save_feedback
+import os
+import time
+
+import streamlit as st
+from elasticsearch import Elasticsearch
+
+from db import ConversationLog
+from embeddings import SentenceTransformerEmbeddings
+from metrics import CallMetrics
+from rag import ObsidianRAG, create_llm_client
+from search import VaultSearcher, ElasticsearchRetriever
 
 
 @st.cache_resource
-def get_assistant():
-    # llm client comes from the env-driven factory in rag.py: OpenAI by
-    # default, any OpenAI-compatible server (Ollama) via LLM_BASE_URL
-    return RAGWithMetrics(search_fn=hybrid_search)
+def build_assistant():
+    """The whole stack, assembled once and reused across reruns: the
+    same wiring the notebooks validated, read from the environment."""
+    model_name = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
+    query_prefix = ("Represent this sentence for searching relevant passages: "
+                    if "bge" in model_name else "")
+
+    es = Elasticsearch(os.getenv("ELASTIC_HOST", "http://elasticsearch:9200"))
+    embeddings = SentenceTransformerEmbeddings(model_name, query_prefix)
+    searcher = VaultSearcher(es, embeddings, os.getenv("ES_INDEX", "obsidian_notes"))
+    retriever = ElasticsearchRetriever(search_fn=searcher.hybrid, num_results=10)
+    rag = ObsidianRAG(retriever, create_llm_client(),
+                      model=os.getenv("LLM_MODEL", "gpt-5.4-mini"))
+
+    log = ConversationLog(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        user=os.getenv("POSTGRES_USER", "user"),
+        password=os.getenv("POSTGRES_PASSWORD", "pswd"),
+        dbname=os.getenv("APP_POSTGRES_DB", "obsidian_assistant"),
+    )
+    log.create_tables()
+    return rag, log
 
 
-assistant = get_assistant()
+rag, log = build_assistant()
 
 st.title("Obsidian Assistant")
+st.caption(f"answering from your vault with {rag.model}")
 
-user_input = st.text_input("Ask your vault:")
+question = st.text_input("Ask your vault:")
 
-if st.button("Ask"):
+if st.button("Ask") and question.strip():
     with st.spinner("Searching your notes..."):
-        answer = assistant.rag(user_input)
-        st.write(answer)
+        started = time.time()
+        result = rag.invoke(question)
+        elapsed = time.time() - started
 
-        record = assistant.last_call
-        st.caption(
-            f"{record.response_time:.2f}s | "
-            f"{record.prompt_tokens} in / {record.completion_tokens} out | "
-            f"${record.cost:.4f}"
-        )
+    metrics = CallMetrics.from_call(rag.model, result["usage"], elapsed)
+    conversation_id = log.save_conversation(
+        question=question,
+        answer=result["answer"],
+        model=metrics.model,
+        prompt_tokens=metrics.prompt_tokens,
+        completion_tokens=metrics.completion_tokens,
+        cost=metrics.cost,
+        response_time=metrics.response_time,
+    )
 
-        conversation_id = save_conversation(record, user_input)
-        st.session_state.conversation_id = conversation_id
+    # the rerun triggered by any later click must still show this answer
+    st.session_state["last"] = {
+        "id": conversation_id,
+        "answer": result["answer"],
+        "sources": [(d.metadata["score"], d.metadata["source"])
+                    for d in result["source_documents"]],
+        "metrics": metrics,
+        "feedback_given": False,
+    }
 
-col1, col2 = st.columns(2)
+last = st.session_state.get("last")
+if last:
+    st.write(last["answer"])
 
-with col1:
-    if st.button("+1") and "conversation_id" in st.session_state:
-        save_feedback(st.session_state.conversation_id, "user", score=1)
-        st.toast("Thanks!")
+    m = last["metrics"]
+    st.caption(f"{m.response_time:.1f}s | {m.prompt_tokens} in / "
+               f"{m.completion_tokens} out | ${m.cost:.4f}")
 
-with col2:
-    if st.button("-1") and "conversation_id" in st.session_state:
-        save_feedback(st.session_state.conversation_id, "user", score=-1)
-        st.toast("Noted.")
+    with st.expander("Sources"):
+        for score, source in last["sources"]:
+            st.write(f"{score:.4f}  {source}")
+
+    if last["feedback_given"]:
+        st.caption("feedback saved, thanks")
+    else:
+        helpful, not_helpful = st.columns(2)
+        if helpful.button("Helpful"):
+            log.save_feedback(last["id"], 1)
+            last["feedback_given"] = True
+            st.rerun()
+        if not_helpful.button("Not helpful"):
+            log.save_feedback(last["id"], -1)
+            last["feedback_given"] = True
+            st.rerun()
