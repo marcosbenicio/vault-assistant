@@ -1,4 +1,5 @@
 import os
+import time
 
 from openai import OpenAI
 
@@ -67,7 +68,9 @@ class ObsidianRAG:
         )
 
     def invoke(self, question):
+        retrieval_started = time.time()
         documents = self.retriever.get_relevant_documents(question)
+        retrieval_time = time.time() - retrieval_started
         prompt = self.build_prompt(question, documents)
 
         response = self.llm_client.chat.completions.create(
@@ -83,4 +86,5 @@ class ObsidianRAG:
             "answer": response.choices[0].message.content,
             "source_documents": documents,
             "usage": response.usage,
+            "retrieval_time": retrieval_time,
         }
