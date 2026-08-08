@@ -25,6 +25,13 @@ services:
       xpack.security.enabled: "false"     # local use only
     ports:
       - "${ES_PORT:-9200}:9200"
+    healthcheck:
+      # started is not ready: the one-shot ingest waits for this check,
+      # because elasticsearch takes ~30s to answer after boot
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - es_data:/usr/share/elasticsearch/data
     networks:
@@ -96,9 +103,34 @@ services:
     volumes:
       - ./assistant:/app
       - ${VAULT_PATH:-./demo_vault}:/vault:ro
+      - hf_cache:/root/.cache/huggingface   # embedding model, downloaded once
     depends_on:
       - elasticsearch
       - postgres
+    networks:
+      - assistant-net
+
+  # ----------------------------------------------------------------------------
+  # ingest - one-shot: same image as the app, but the command runs the
+  # __main__ block of ingest.py instead of streamlit. It waits for
+  # elasticsearch to be healthy, indexes whatever is mounted at /vault
+  # (the user's vault via VAULT_PATH, or the committed demo_vault), then
+  # exits. Deterministic ids make reruns idempotent, so the stack can
+  # rebuild the index on every up. Rerun anytime: make ingest
+  # ----------------------------------------------------------------------------
+  ingest:
+    build: .
+    container_name: assistant_ingest
+    command: python ingest.py
+    restart: "no"
+    environment: *app-env
+    volumes:
+      - ./assistant:/app
+      - ${VAULT_PATH:-./demo_vault}:/vault:ro
+      - hf_cache:/root/.cache/huggingface   # embedding model, downloaded once
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
     networks:
       - assistant-net
 
@@ -121,6 +153,7 @@ services:
     volumes:
       - .:/project
       - ${VAULT_PATH:-./demo_vault}:/vault:ro
+      - hf_cache:/root/.cache/huggingface   # embedding model, downloaded once
     depends_on:
       - elasticsearch
       - postgres
@@ -163,3 +196,4 @@ volumes:
   pg_data:
   grafana_data:
   ollama_data:
+  hf_cache:        # sentence-transformers weights, shared by app/notebook/ingest

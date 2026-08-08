@@ -37,9 +37,9 @@ init-db:
 reset-db:
 	$(EXEC) python db.py --recreate
 
-# ingest the vault into elasticsearch from the terminal
+# reindex the vault: reruns the same one-shot the stack executes on up
 ingest:
-	$(EXEC) python ingest.py
+	docker compose run --rm ingest
 
 # peek at the last 10 logged conversations in postgres
 check-db:
