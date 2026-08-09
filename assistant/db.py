@@ -53,7 +53,7 @@ class ConversationLog:
                     answer            TEXT NOT NULL,
                     model             TEXT NOT NULL,
                     embed_model       TEXT,
-                    search_mode       TEXT NOT NULL DEFAULT 'hybrid',
+                    search_mode       TEXT NOT NULL DEFAULT 'fused',
                     num_sources       INTEGER,
                     sources           JSONB,
                     prompt_tokens     INTEGER,
@@ -90,12 +90,13 @@ class ConversationLog:
     def save_conversation(self, question, answer, model, prompt_tokens,
                           completion_tokens, cost, response_time,
                           source="streamlit", embed_model=None,
-                          search_mode="hybrid", num_sources=None,
+                          search_mode="fused", num_sources=None,
                           sources=None, retrieval_time=None,
                           session_id=None):
         """One answered question becomes one row. Returns the generated
         id, which is what feedback and judgements point at. The newer
-        fields default to empty so older callers keep working."""
+        fields default to None (and search_mode to the app's default
+        retrieval) so older callers keep working."""
         with self._connect() as conn:
             row = conn.execute(
                 """

@@ -98,6 +98,7 @@ services:
       VAULT_PATH: "/vault"
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-5.4-mini}
+      LLM_API_KEY: ${LLM_API_KEY:-ollama}
       EMBED_MODEL: ${EMBED_MODEL:-all-MiniLM-L6-v2}
       ES_INDEX: ${ES_INDEX:-obsidian_notes}
     volumes:
@@ -163,10 +164,10 @@ services:
   # ----------------------------------------------------------------------------
   # ollama - optional local LLM, off by default. Start it with:
   #   docker compose --profile ollama up -d
-  #   docker compose exec ollama ollama pull llama3.2:3b
+  #   docker compose exec ollama ollama pull qwen2.5:7b-instruct
   # and point the app at it in .env:
   #   LLM_BASE_URL=http://ollama:11434/v1
-  #   LLM_MODEL=llama3.2:3b
+  #   LLM_MODEL=qwen2.5:7b-instruct
   # For GPU acceleration combine with docker-compose.gpu.yml.
   # ----------------------------------------------------------------------------
   ollama:

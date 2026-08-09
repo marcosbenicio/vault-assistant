@@ -84,9 +84,11 @@ retrieval evaluation runs on a fresh clone. One honest caveat,
 measured: evaluated over the full demo vault the hit rate lands around
 0.68, because these documentation notes discuss the same topics and
 compete for top-10 slots; evaluated over the `llm-zoomcamp-2026/`
-subfolder alone, the original corpus, the reported numbers reproduce. The four stable notebooks
-(ingestion pipeline, retrieval evaluation, generation evaluation,
-database logging) run top to bottom against the package and print the
+subfolder alone, the original corpus, the reported numbers reproduce
+(the retrieval notebook builds that scoped index itself). The five
+stable notebooks (ingestion pipeline, retrieval evaluation, llm judge
+evaluation, database logging, course criteria evaluation) run top to
+bottom against the package and print the
 same tables and charts the project reports; the expensive measurements
 (the full rerank pass, the model comparison) are cached or recorded
 with their reproduction commands next to them.

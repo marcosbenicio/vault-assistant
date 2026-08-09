@@ -38,8 +38,9 @@ any idea near a boundary appears whole in some chunk; the redundancy
 it creates in the index is cheap, paid once at indexing time.
 
 Each chunk is a Document again, inheriting the note metadata plus
-`start`, its character offset inside the note. On the current vault,
-51 notes become 218 chunks. The concept and the experiments behind
+`start`, its character offset inside the note. On the current demo
+vault, 66 notes become 340 chunks (the 51 course notes alone account
+for 218). The concept and the experiments behind
 chunk sizing are in [[rag]] and [[rag_vector_search]].
 
 ## The indexer

@@ -27,7 +27,7 @@ feedback  judgements
 
 The conversations table is deliberately rich, every column with a
 consumer waiting: question and answer, the llm that answered, the
-embedding model active, the search mode (hybrid today, rerank when the
+embedding model active, the search mode (fused today, rerank when the
 quality toggle lands), how many chunks were retrieved and which ones
 (a jsonb list with path, offset and score, the full retrieval trace
 for debugging any answer after the fact), tokens in and out, cost in

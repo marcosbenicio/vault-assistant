@@ -85,8 +85,3 @@ Create function to receive a tool call from the LLM, running the tool locally, a
 This is the agentic loop wrapped as a reusable function that takes the agent's `instructions` and a `question` and returns the final answer as a string. It starts by building the initial conversation with the developer message (the instructions) and the user message (the question), then enters a `while True` loop. On each iteration it sends the full message history to the API along with the available tools, appends the model's entire output to `messages` so the next call sees what the model just said (this is how memory is built), and walks through every item in the output: when the item is a `function_call`, it runs `make_call` to execute the tool and appends the JSON result to `messages`, marking `has_function_calls = True` so the loop knows there is more to do; when the item is a `message`, it captures `item.content[0].text` into `last_answer` and prints it. After processing the output, if no function calls were made in this iteration, the model is signaling it has nothing more to look up and the loop breaks. The function returns the last assistant message it saw, which is the final answer to the user.
 
 The agent searches for "Olama" and gets poor results. It then searches again with "Ollama" and finds the answer. The loop lets the model recover from a bad search on its own. That's the whole point of going agentic.
-
-First, we will pull the lesson pages straight from the course repository. 
-We will use the commit `8c1834d` to make sure everyone works with the exact same data.
-
-We will use `gitsource` for that:

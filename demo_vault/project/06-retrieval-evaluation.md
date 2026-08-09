@@ -44,7 +44,8 @@ rerank        0.765       0.543    0.96       0.70
 ```
 
 Among the three search methods, hybrid wins on both metrics and both
-difficulty levels, so it is the application default. Depth was also
+difficulty levels, so it is the base the application's retrieval
+builds on. Depth was also
 measured: the hit rate curve keeps climbing between k=5 and k=10,
 which is why the retriever feeds ten chunks to the model rather than
 five.

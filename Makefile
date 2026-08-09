@@ -41,18 +41,20 @@ reset-db:
 ingest:
 	docker compose run --rm ingest
 
-# peek at the last 10 logged conversations in postgres
+# peek at the last 10 logged conversations in postgres (the container's
+# own POSTGRES_USER is used, so .env overrides keep working)
 check-db:
-	docker compose exec postgres psql -U user -d obsidian_assistant \
-		-c "SELECT id, question, model, cost, response_time, created_at FROM conversations ORDER BY id DESC LIMIT 10;"
+	docker compose exec postgres sh -c 'psql -U $$POSTGRES_USER -d obsidian_assistant \
+		-c "SELECT id, question, model, cost, response_time, created_at FROM conversations ORDER BY id DESC LIMIT 10;"'
 
 # follow the app logs live (ctrl+c to leave)
 logs:
 	docker compose logs -f app
 
-# print every service address
+# print every service address, honoring the port overrides in .env
 urls:
-	@echo "App:      http://localhost:8501"
-	@echo "Jupyter:  http://localhost:8888/?token=$${JUPYTER_TOKEN:-dev}"
-	@echo "Grafana:  http://localhost:3000  (admin / admin)"
-	@echo "Elastic:  http://localhost:9200"
+	@. ./.env 2>/dev/null || true; \
+	echo "App:      http://localhost:$${APP_PORT:-8501}"; \
+	echo "Jupyter:  http://localhost:$${JUPYTER_PORT:-8888}/?token=$${JUPYTER_TOKEN:-dev}"; \
+	echo "Grafana:  http://localhost:$${GRAFANA_PORT:-3000}  (admin / $${GRAFANA_PASSWORD:-admin})"; \
+	echo "Elastic:  http://localhost:$${ES_PORT:-9200}"

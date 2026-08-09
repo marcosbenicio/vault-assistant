@@ -4,9 +4,10 @@ from cleaner import Document
 
 
 class VaultSearcher:
-    """The four search modes over the indexed vault: bm25 text, knn
-    vector, their reciprocal rank fusion, and cross-encoder reranking
-    on top. Holds the elasticsearch client, the embeddings and the
+    """The four plain search modes over the indexed vault: bm25 text,
+    knn vector, their reciprocal rank fusion, and cross-encoder
+    reranking on top. The fifth mode, rewrite-fused (the app default),
+    composes hybrid and lives in rewriter.py. Holds the elasticsearch client, the embeddings and the
     index name; the cross-encoder loads lazily on first rerank."""
 
     def __init__(self, es_client, embeddings, index):
@@ -98,7 +99,9 @@ class VaultSearcher:
 class ElasticsearchRetriever:
     """The LangChain retriever interface: get_relevant_documents(query)
     returns chunk Documents, which is all the RAG chain needs to know
-    about retrieval. search_fn is any VaultSearcher method."""
+    about retrieval. search_fn is any callable with the
+    (query, num_results, folder) signature: a VaultSearcher method or
+    RewriteFusedSearch.search."""
 
     def __init__(self, search_fn, num_results=10):
         self.search_fn = search_fn
