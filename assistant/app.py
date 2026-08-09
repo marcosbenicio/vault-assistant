@@ -16,6 +16,7 @@ from embeddings import SentenceTransformerEmbeddings
 from judge import LLMJudge
 from metrics import CallMetrics
 from rag import ObsidianRAG, create_llm_client
+from rewriter import QueryRewriter, RewriteFusedSearch
 from search import VaultSearcher, ElasticsearchRetriever
 
 
@@ -31,10 +32,21 @@ def build_assistant():
     es = Elasticsearch(os.getenv("ELASTIC_HOST", "http://elasticsearch:9200"))
     embeddings = SentenceTransformerEmbeddings(model_name, query_prefix)
     searcher = VaultSearcher(es, embeddings, os.getenv("ES_INDEX", "obsidian_notes"))
-    retriever = ElasticsearchRetriever(search_fn=searcher.hybrid, num_results=10)
+
+    # default retrieval changed from plain hybrid to rewrite+fuse: on the
+    # 200 question ground truth, fusing the original question with an
+    # llm-rewritten version raised hit rate 0.755 -> 0.885 (hard questions
+    # 0.68 -> 0.86, rescued 28 / broke 2), for one cheap extra llm call
+    # (~0.7s). Full measurement in the query rewriting section of
+    # notebooks/stable/02_retrieval_evaluation.ipynb.
+    openai_client = OpenAI()
+    rewriter = QueryRewriter(openai_client, model="gpt-5.4-mini")
+    fused = RewriteFusedSearch(searcher, rewriter)
+    retriever = ElasticsearchRetriever(search_fn=fused.search, num_results=10)
+
     rag = ObsidianRAG(retriever, create_llm_client(),
                       model=os.getenv("LLM_MODEL", "gpt-5.4-mini"))
-    judge = LLMJudge(OpenAI(), model="gpt-5.4-mini")
+    judge = LLMJudge(openai_client, model="gpt-5.4-mini")
 
     log = ConversationLog(
         host=os.getenv("POSTGRES_HOST", "localhost"),
@@ -72,7 +84,7 @@ if st.button("Ask") and question.strip():
         cost=metrics.cost,
         response_time=metrics.response_time,
         embed_model=os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2"),
-        search_mode="hybrid",
+        search_mode="fused",
         num_sources=len(result["source_documents"]),
         sources=[{"path": d.metadata["source"], "start": d.metadata["start"],
                   "score": d.metadata["score"]}

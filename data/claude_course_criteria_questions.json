@@ -1,0 +1,61 @@
+[
+  {"criterion": "problem_description", "question": "What problem does the obsidian assistant solve?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "problem_description", "question": "What is the obsidian assistant and what does it do with my notes?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "problem_description", "question": "Can the assistant modify or delete my notes?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "problem_description", "question": "Which course is this the final project of?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "problem_description", "question": "If I already use a chat model every day, what does this project give me that a plain chat cannot?", "path": "project/01-intro.md", "difficulty": "hard"},
+
+  {"criterion": "retrieval_flow", "question": "What happens between typing a question and seeing the answer?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "retrieval_flow", "question": "How does the assistant decide which notes to send to the model?", "path": "project/05-search-and-index.md", "difficulty": "easy"},
+  {"criterion": "retrieval_flow", "question": "How many chunks does the retriever feed the model, and why that number?", "path": "project/05-search-and-index.md", "difficulty": "easy"},
+  {"criterion": "retrieval_flow", "question": "How does the prompt show the model where each excerpt came from?", "path": "project/07-generation-and-judge.md", "difficulty": "easy"},
+  {"criterion": "retrieval_flow", "question": "Why does the assistant sometimes answer that it could not find something in the vault?", "path": "project/07-generation-and-judge.md", "difficulty": "hard"},
+
+  {"criterion": "retrieval_evaluation", "question": "Which retrieval method does this project use by default, and why?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "retrieval_evaluation", "question": "What hit rate does hybrid search achieve on the ground truth?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "retrieval_evaluation", "question": "What are the two metrics used to evaluate retrieval?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "retrieval_evaluation", "question": "How was the ground truth for the retrieval evaluation created?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "retrieval_evaluation", "question": "Why do the hard questions of the ground truth fail more often than the easy ones?", "path": "project/06-retrieval-evaluation.md", "difficulty": "hard"},
+
+  {"criterion": "llm_evaluation", "question": "How are the assistant's answers evaluated without an answer key?", "path": "project/07-generation-and-judge.md", "difficulty": "easy"},
+  {"criterion": "llm_evaluation", "question": "Which two answer models were compared, and which one won?", "path": "project/07-generation-and-judge.md", "difficulty": "easy"},
+  {"criterion": "llm_evaluation", "question": "What share of the gpt answers were judged relevant?", "path": "project/07-generation-and-judge.md", "difficulty": "easy"},
+  {"criterion": "llm_evaluation", "question": "Who audited the judge before it was trusted?", "path": "project/07-generation-and-judge.md", "difficulty": "easy"},
+  {"criterion": "llm_evaluation", "question": "What is the retrieval ceiling, and which model sits exactly on it?", "path": "project/07-generation-and-judge.md", "difficulty": "hard"},
+
+  {"criterion": "interface", "question": "What interface does the assistant have?", "path": "project/01-intro.md", "difficulty": "easy"},
+  {"criterion": "interface", "question": "What do the helpful and not helpful buttons do?", "path": "project/08-monitoring-stack.md", "difficulty": "easy"},
+  {"criterion": "interface", "question": "What information appears under each answer besides the text?", "path": "welcome_demo_vault.md", "difficulty": "easy"},
+  {"criterion": "interface", "question": "Where can I see which notes grounded an answer?", "path": "welcome_demo_vault.md", "difficulty": "easy"},
+  {"criterion": "interface", "question": "After I vote on an answer, where does that vote end up and who reads it?", "path": "project/08-monitoring-stack.md", "difficulty": "hard"},
+
+  {"criterion": "ingestion_pipeline", "question": "How do notes get from the vault into the search engine?", "path": "project/03-ingestion-pipeline.md", "difficulty": "easy"},
+  {"criterion": "ingestion_pipeline", "question": "What happens automatically when the stack starts?", "path": "project/03-ingestion-pipeline.md", "difficulty": "easy"},
+  {"criterion": "ingestion_pipeline", "question": "How do I reindex after adding a new note?", "path": "project/03-ingestion-pipeline.md", "difficulty": "easy"},
+  {"criterion": "ingestion_pipeline", "question": "Why is it safe to run the ingestion twice?", "path": "project/03-ingestion-pipeline.md", "difficulty": "easy"},
+  {"criterion": "ingestion_pipeline", "question": "Why did batching the embedding calls make ingestion an order of magnitude faster?", "path": "project/03-ingestion-pipeline.md", "difficulty": "hard"},
+
+  {"criterion": "monitoring", "question": "What gets logged to postgres after every answer?", "path": "project/08-monitoring-stack.md", "difficulty": "easy"},
+  {"criterion": "monitoring", "question": "What are the three tables of the monitoring schema?", "path": "project/08-monitoring-stack.md", "difficulty": "easy"},
+  {"criterion": "monitoring", "question": "What does grafana show, and where does it read from?", "path": "project/08-monitoring-stack.md", "difficulty": "easy"},
+  {"criterion": "monitoring", "question": "What is the difference between the feedback table and the judgements table?", "path": "project/08-monitoring-stack.md", "difficulty": "easy"},
+  {"criterion": "monitoring", "question": "Why can a failure of the judge never block an answer?", "path": "project/08-monitoring-stack.md", "difficulty": "hard"},
+
+  {"criterion": "containerization", "question": "How is the project containerized?", "path": "project/02-architecture.md", "difficulty": "easy"},
+  {"criterion": "containerization", "question": "Which services make up the docker compose stack?", "path": "project/02-architecture.md", "difficulty": "easy"},
+  {"criterion": "containerization", "question": "Why do the app and the notebook service share the same image?", "path": "project/02-architecture.md", "difficulty": "easy"},
+  {"criterion": "containerization", "question": "What is the optional ollama service for?", "path": "project/02-architecture.md", "difficulty": "easy"},
+  {"criterion": "containerization", "question": "Why does editing code not require rebuilding the image, while changing the env file requires recreating the container?", "path": "project/02-architecture.md", "difficulty": "hard"},
+
+  {"criterion": "reproducibility", "question": "What do I need to run this project from a fresh clone?", "path": "project/09-running-it.md", "difficulty": "easy"},
+  {"criterion": "reproducibility", "question": "How do I point the assistant at my own notes?", "path": "project/09-running-it.md", "difficulty": "easy"},
+  {"criterion": "reproducibility", "question": "Can the reported evaluation numbers be reproduced, and how?", "path": "project/09-running-it.md", "difficulty": "easy"},
+  {"criterion": "reproducibility", "question": "Which make commands exist, and what does each one do?", "path": "project/09-running-it.md", "difficulty": "easy"},
+  {"criterion": "reproducibility", "question": "Why does the retrieval evaluation give slightly different numbers over the full demo vault than the ones reported?", "path": "project/09-running-it.md", "difficulty": "hard"},
+
+  {"criterion": "best_practices", "question": "What is hybrid search, and does this project use it?", "path": "project/05-search-and-index.md", "difficulty": "easy"},
+  {"criterion": "best_practices", "question": "What does the cross-encoder reranker do?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "best_practices", "question": "What did reranking improve, and what did it cost?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "best_practices", "question": "Is query rewriting implemented in this project?", "path": "project/06-retrieval-evaluation.md", "difficulty": "easy"},
+  {"criterion": "best_practices", "question": "Why does reranking barely change the hit rate while improving MRR a lot?", "path": "project/06-retrieval-evaluation.md", "difficulty": "hard"}
+]

@@ -17,7 +17,8 @@ class VaultSearcher:
 
     def text(self, query, num_results=5, folder=None):
         """BM25 over content plus title, title worth double. An
-        optional folder narrows the scope without touching scores."""
+        optional folder narrows the scope to that subtree (prefix
+        match, so "a" covers "a/b" too) without touching scores."""
         body = {"bool": {
             "must": {
                 "multi_match": {
@@ -28,7 +29,7 @@ class VaultSearcher:
             }
         }}
         if folder:
-            body["bool"]["filter"] = {"term": {"folder": folder}}
+            body["bool"]["filter"] = {"prefix": {"folder": folder}}
 
         resp = self.es_client.search(
             index=self.index,
@@ -51,7 +52,7 @@ class VaultSearcher:
             "num_candidates": 1000,
         }
         if folder:
-            knn["filter"] = {"term": {"folder": folder}}
+            knn["filter"] = {"prefix": {"folder": folder}}
 
         resp = self.es_client.search(
             index=self.index,

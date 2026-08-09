@@ -1,0 +1,275 @@
+criterion,difficulty,question,expected,hit,relevance,reasoning,answer,response_time
+problem_description,easy,What problem does the obsidian assistant solve?,project/01-intro.md,True,RELEVANT,"The generated answer directly addresses the question by explaining what the Obsidian Assistant does and, by implication, what problem it solves: it helps users ask questions about an Obsidian vault and get cited answers from their notes. This is highly relevant to the source context and matches the likely intent of the question. Although it includes extra implementation details (Elasticsearch, Streamlit, logging, dashboard) that may go beyond the exact wording of the question, the core answer is on-topic and responsive.","The Obsidian Assistant is a RAG assistant that answers questions about an Obsidian vault by ingesting the markdown notes, indexing them in Elasticsearch, and using a Streamlit app to answer with citations from the notes it used. It also logs answers, judges them, and shows them on a dashboard.
+
+Sources:
+- project/01-intro.md",1.5168354511260986
+problem_description,easy,What is the obsidian assistant and what does it do with my notes?,project/01-intro.md,True,RELEVANT,"The generated answer directly addresses both parts of the question: it explains what the Obsidian Assistant is and describes what it does with notes. It states that it is a RAG assistant for an Obsidian vault, that it reads markdown notes, indexes them, and uses them to answer questions, which is highly relevant to the user's query. It also adds that the vault is mounted read-only, which is a plausible implementation detail and does not detract from relevance. Overall, the answer is on-topic and sufficiently informative.","The Obsidian Assistant is a RAG assistant for an Obsidian vault. It reads markdown notes, indexes them into Elasticsearch, and answers questions over that index with an LLM, citing the notes it used. The vault is mounted read only, so it can read notes but not modify them.
+
+Sources:
+- project/01-intro.md
+- project/09-running-it.md",1.276296854019165
+problem_description,easy,Can the assistant modify or delete my notes?,project/01-intro.md,False,RELEVANT,"The generated answer directly addresses the question about whether the assistant can modify or delete notes. It states that the vault is mounted read-only, so the assistant cannot modify notes, and that deletion is handled by the user deleting files and re-running ingestion rather than by the assistant. This matches the likely intent of the question and is grounded in the cited sources. The answer is concise and relevant to the asked capability limitation.","No. The notes say the vault is mounted read only, so the assistant can never modify a note. They also say deleting content is done by deleting the file yourself and re-running `make ingest`, not by the assistant.
+
+Sources:
+- project/09-running-it.md
+- welcome_demo_vault.md",1.1617372035980225
+problem_description,easy,Which course is this the final project of?,project/01-intro.md,False,NON_RELEVANT,"The question asks for a specific factual identification: which course the final project belongs to. The generated answer does not attempt to answer this at all; it only says it could not find it in the vault. That is a refusal/absence of information rather than a relevant answer. Since it provides no course name or supporting detail, it does not address the question content. The presence of source files suggests the answer should have been grounded in them, but the response ignores the actual query.","I could not find it in the vault.
+
+Sources:
+- concepts/monitoring.md
+- welcome_demo_vault.md
+- llm-zoomcamp-2026/01-agentic-rag/03-rag.md",1.1581134796142578
+problem_description,hard,"If I already use a chat model every day, what does this project give me that a plain chat cannot?",project/01-intro.md,False,RELEVANT,"The generated answer directly addresses the user's question by contrasting a plain chat model with the project's added value. It explains that the project uses RAG to retrieve relevant documents at question time, grounding answers in course/FAQ data rather than relying only on the model's internal memory. This is exactly the kind of distinction the question asks for. The mention of building a working FAQ agent is also relevant, though secondary. Overall, the answer is on-topic and responsive.","A plain chat model only answers from its training data and can hallucinate or miss your own documents. This project adds RAG, so the assistant retrieves relevant FAQ/course documents at question time and grounds the answer in that data instead of relying on memory. It also builds a working FAQ agent for the course.
+
+Sources:
+- llm-zoomcamp-2026/01-agentic-rag/01-intro-agentic-rag.md",1.9559640884399414
+retrieval_flow,easy,What happens between typing a question and seeing the answer?,project/01-intro.md,True,RELEVANT,"The question asks generally what happens between typing a question and seeing the answer. The generated answer describes a plausible end-to-end RAG pipeline: retrieval, prompt construction, generation, and recording. This directly addresses the process between input and output, so it is relevant. However, it includes specific implementation details (BM25, vector search, Postgres writes, judge verdict, human thumb vote) that may not be supported by the question itself and could be overly specific or speculative. Still, the core answer matches the question well.","Between typing a question and seeing the answer, the loop runs in four steps:
+
+1. Retrieval: the question goes to the searcher, which runs BM25 and vector search and fuses the rankings; the 10 best chunks come back.
+2. Prompt: the chain builds a context block with source paths, puts context first and the question last, and tells the model to answer only from that context.
+3. Generation: the model answers at temperature zero and lists the notes it used.
+4. Record: three writes go to Postgres — the conversation with tokens, cost and latency, the LLM judge verdict, and any human thumb vote.
+
+Sources:
+- project/01-intro.md",1.5673339366912842
+retrieval_flow,easy,How does the assistant decide which notes to send to the model?,project/05-search-and-index.md,True,RELEVANT,"The generated answer directly addresses the question of how the assistant decides which notes to send to the model. It explains the selection mechanism as hybrid search combining BM25 and vector search, using reciprocal rank fusion, and selecting the top 10 chunks. This is clearly relevant to the question and appears to answer it in a specific, procedural way. Although the answer may include extra detail about performance justification, it remains on-topic and responsive to the question.","The assistant uses hybrid search by default: it runs BM25 and vector search, fuses the rankings with reciprocal rank fusion, and returns the 10 best chunks to the model. This is the default because hybrid search beat each method alone on the measured retrieval metrics.
+
+Sources:
+- project/05-search-and-index.md
+- project/01-intro.md",1.2301390171051025
+retrieval_flow,easy,"How many chunks does the retriever feed the model, and why that number?",project/05-search-and-index.md,True,RELEVANT,"The generated answer directly addresses the question by stating how many chunks the retriever feeds the model and giving a rationale for that choice. It also aligns with the likely content of the cited retrieval evaluation source by referencing hit-rate improvement between k=5 and k=10. Since it answers both parts of the question clearly and specifically, it is relevant.","The retriever feeds the model 10 chunks. That number was chosen because the hit rate kept climbing between k=5 and k=10, so 10 gave better retrieval depth than 5.
+
+Sources:
+- project/05-search-and-index.md
+- project/06-retrieval-evaluation.md",1.0937905311584473
+retrieval_flow,easy,How does the prompt show the model where each excerpt came from?,project/07-generation-and-judge.md,True,RELEVANT,"The generated answer directly addresses the question by explaining that the prompt indicates the origin of each excerpt through an explicit `source:` line at the start of each chunk and by instructing the model to track source paths. This is a focused response to how excerpt provenance is represented in the prompt. Even if some wording may be inferred, it is clearly relevant to the asked mechanism.","The prompt shows the model where each excerpt came from by putting an explicit `source:` line at the start of every chunk in the context block, carrying the note path. The instructions also tell the model that each part starts with its source path and to close every answer with a Sources list of the paths it actually used.
+
+Sources:
+- project/07-generation-and-judge.md",1.403230905532837
+retrieval_flow,hard,Why does the assistant sometimes answer that it could not find something in the vault?,project/07-generation-and-judge.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why the assistant says it could not find something in the vault: because retrieval produced no useful context, and the assistant should honestly refuse instead of guessing. This matches the likely intent of the question and is consistent with the cited sources about agentic RAG behavior. The answer is concise but on-topic and explanatory.","The assistant says it could not find something in the vault when retrieval returns no useful context. In that case, the intended behavior is to refuse honestly rather than guess or wander.
+
+Sources:
+- project/07-generation-and-judge.md
+- llm-zoomcamp-2026/01-agentic-rag/11-agents-intro.md",1.183152675628662
+retrieval_evaluation,easy,"Which retrieval method does this project use by default, and why?",project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by naming the default retrieval method and giving a reason for that choice. It states that hybrid search is used by default and explains that it was selected because it performed best on retrieval metrics in evaluation. This matches the likely intent of the question and is specific to the project context. Even if the exact wording or metric details may not be fully verifiable from the provided sources, the answer is clearly on-topic and substantively responsive.","The project uses **hybrid search** by default, because it **won on both retrieval metrics** in the ground-truth evaluation: it beat text and vector search on hit rate and MRR, including both easy and hard questions.
+
+Sources:
+- project/06-retrieval-evaluation.md
+- project/05-search-and-index.md",1.1926989555358887
+retrieval_evaluation,easy,What hit rate does hybrid search achieve on the ground truth?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by stating the hit rate achieved by hybrid search on the ground truth. It provides the specific value 0.8722, which is clearly responsive to the query. It also mentions an additional figure (0.755) from another summary, but this does not undermine relevance because the main requested information is present and clearly identified. The answer is therefore highly relevant to the question.","Hybrid search achieves a hit rate of **0.8722** on the ground truth in the evaluation notes. Another summary in the retrieval evaluation notes reports **0.755** over all 200 questions, but the explicit hybrid search run with `k=50` gives **0.8722**.
+
+Sources:
+- concepts/evaluation.md
+- project/06-retrieval-evaluation.md",2.1804583072662354
+retrieval_evaluation,easy,What are the two metrics used to evaluate retrieval?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by naming the two retrieval evaluation metrics. It states Hit Rate@10 and MRR (Mean Reciprocal Rank), which matches the expected content from the provided sources. The answer is concise and on-topic, with no apparent deviation or missing core information.","The two metrics are Hit Rate@10 and MRR (Mean Reciprocal Rank).
+
+Sources:
+- project/06-retrieval-evaluation.md
+- llm-zoomcamp-2026/04-evaluation/01-intro-evaluation.md
+- llm-zoomcamp-2026/04-evaluation/05-search-metrics.md",1.3010997772216797
+retrieval_evaluation,easy,How was the ground truth for the retrieval evaluation created?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by explaining how the ground truth for retrieval evaluation was created. It mentions the process of having Claude read the notes and generate question–note pairs, and it also describes the easy/hard split. This is clearly relevant to the asked topic. However, the answer may be somewhat over-specific or possibly embellished beyond what is strictly supported by the sources, but that does not affect relevance classification.","The ground truth was created by having Claude read every note in the vault and generate 200 question–note pairs, saved in `data/claude_ground_truth.json`. It was split into 50 easy questions that reuse the note’s wording and 150 hard adversarial paraphrases that use different vocabulary.
+
+Sources:
+- project/06-retrieval-evaluation.md
+- llm-zoomcamp-2026/04-evaluation/02-ground-truth.md",1.2501983642578125
+retrieval_evaluation,hard,Why do the hard questions of the ground truth fail more often than the easy ones?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why hard questions fail more often than easy ones. It attributes the difference to harder, adversarial paraphrases with vocabulary not present in the note, versus easy questions that reuse the note’s wording and are easier for retrieval. This is clearly on-topic and answers the causal question, even if it is somewhat speculative and not explicitly grounded in the provided source text. Since the response is relevant to the asked question and provides a plausible explanation, it should be considered relevant.","The hard questions fail more often because they are adversarial paraphrases that use vocabulary the note never uses, so they are intentionally harder for retrieval. The easy questions reuse the note’s own wording and mostly saturate retrieval.
+
+Sources:
+- project/06-retrieval-evaluation.md",1.2758817672729492
+llm_evaluation,easy,How are the assistant's answers evaluated without an answer key?,project/07-generation-and-judge.md,True,RELEVANT,"The generated answer directly addresses the question: it explains that without an answer key, the assistant’s answers are evaluated using an LLM-as-judge approach. It correctly mentions that the judge can assess the question and generated answer even when no gold/reference answer is available. The answer is relevant and on-topic. However, it adds some extra details about comparing to the original answer when available and classification labels, which are not necessary for the specific question, but they do not make it incorrect. Overall, it fully answers the question with accurate information.","They are evaluated with an LLM-as-judge: a strong model reads the question and the generated answer, compares it to the original answer when available, and classifies it as good/bad or RELEVANT/PARTLY_RELEVANT/NON_RELEVANT, while also explaining its reasoning. In production, when there is no gold answer, the judge evaluates only the question and generated answer.
+
+Sources:
+- project/07-generation-and-judge.md
+- llm-zoomcamp-2026/04-evaluation/13-llm-as-judge.md
+- llm-zoomcamp-2026/04-evaluation/11-evaluation-intro.md
+- concepts/evaluation.md",1.5746135711669922
+llm_evaluation,easy,"Which two answer models were compared, and which one won?",project/07-generation-and-judge.md,False,PARTLY_RELEVANT,"The generated answer addresses the core of the question by identifying two models that were compared and stating a winner/result. However, it appears to be based on the source content but may not exactly match the question’s wording: the question asks about ""answer models"" and which one won, while the response discusses ""embedding models"" and says there was a tie, with MiniLM staying as the lighter choice. This is still relevant because it directly attempts to answer the comparison and outcome, but it may be partially off in terminology and certainty. Overall, it is substantially aligned with the question, though not perfectly precise.","The two embedding models compared were MiniLM and bge-small. bge-small was tested both with and without its query instruction prefix. It was a documented tie on this vault, so MiniLM stayed as the lighter choice.
+
+Sources:
+- project/06-retrieval-evaluation.md",1.256410837173462
+llm_evaluation,easy,What share of the gpt answers were judged relevant?,project/07-generation-and-judge.md,True,RELEVANT,"The question asks: ""What share of the gpt answers were judged relevant?"" The generated answer provides a percentage share and directly states that 76% of the gpt-5.4-mini answers were judged RELEVANT. This appears to answer the question in the expected form, assuming the relevant source data refers to the gpt answers and their judged relevance. The answer is concise and on-topic, with no obvious mismatch or extraneous content.","76% of the gpt-5.4-mini answers were judged RELEVANT.
+
+Sources:
+- project/07-generation-and-judge.md
+- project/01-intro.md",0.9135193824768066
+llm_evaluation,easy,Who audited the judge before it was trusted?,project/07-generation-and-judge.md,True,RELEVANT,"The generated answer directly addresses the question by identifying who audited the judge before it was trusted: the author. It also adds supporting details about how the audit was done (by hand, reading samples, checking labels and reasoning, using more than one random sample before paying for a large run). These details appear to be consistent with the likely source context and are relevant to the question asked. Since the answer clearly and specifically answers the question rather than drifting off-topic, it should be considered relevant.","The judge was audited by the author, by hand, by reading samples of its verdicts next to the questions and answers they judged, checking both the label and the written reasoning across more than one random sample before any large run was paid for.
+
+Sources:
+- project/07-generation-and-judge.md",1.118016004562378
+llm_evaluation,hard,"What is the retrieval ceiling, and which model sits exactly on it?",project/07-generation-and-judge.md,True,RELEVANT,"The generated answer directly addresses the question by identifying a retrieval ceiling value and naming the model that sits exactly on it. It appears to provide a specific factual claim rather than drifting off-topic. Since the question asks for the retrieval ceiling and which model is exactly on it, and the answer gives both pieces of information in a concise form, it is relevant to the query. Without checking the source documents, I cannot verify factual correctness, but relevance is about topical alignment, not truthfulness. Therefore, the answer is relevant to the question.","The retrieval ceiling is about 76% RELEVANT on this sample. gpt-5.4-mini sits exactly on that ceiling.
+
+Sources:
+- project/07-generation-and-judge.md
+- project/06-retrieval-evaluation.md",1.2122747898101807
+interface,easy,What interface does the assistant have?,project/01-intro.md,False,RELEVANT,"The question asks what interface the assistant has. The generated answer directly addresses this by describing the assistant's interface as a simple Streamlit web interface and listing its main elements (title, text input, Ask button, spinner, result display). This is a direct and specific match to the question, and it is consistent with the provided source context about a chat app interface. Therefore, the answer is relevant.","The assistant has a simple Streamlit web interface: a title, a text input for the question, and an “Ask” button. When clicked, it runs the RAG answer inside a spinner and shows the result.
+
+Sources:
+- llm-zoomcamp-2026/05-monitoring/03-chat-app.md",1.2911739349365234
+interface,easy,What do the helpful and not helpful buttons do?,project/08-monitoring-stack.md,False,RELEVANT,"The generated answer directly addresses the question by explaining the purpose of the helpful and not helpful buttons: they collect user feedback, with helpful corresponding to thumbs-up and not helpful to thumbs-down. It also adds implementation details about recording clicks in a feedback table and using the data for evaluation and dashboard monitoring. These extra details are consistent with the likely source material and do not distract from the core answer. Since it answers the question clearly and accurately, it is relevant.","They collect user feedback on answers: helpful = thumbs-up, not helpful = thumbs-down. The clicks are recorded in a feedback table with a `source` column, and the data can later be used for evaluation and to spot problems on the dashboard.
+
+Sources:
+- llm-zoomcamp-2026/05-monitoring/08-user-feedback.md
+- llm-zoomcamp-2026/04-evaluation/15-next-steps.md",2.5080618858337402
+interface,easy,What information appears under each answer besides the text?,welcome_demo_vault.md,True,RELEVANT,"The question asks what information appears under each answer besides the text. The generated answer directly addresses this by stating that a Sources panel appears under each answer and that it contains note paths and chunks grounding the answer. This is highly relevant to the question. However, it also adds an extra claim about the prompt asking the model to close every answer with a Sources list, which is not necessary to answer the question and may be slightly beyond the scope. Still, the core response matches the question well.","Under each answer, the app shows the Sources panel with the note paths and chunks that grounded it. The prompt also asks the model to close every answer with a Sources list of the paths it actually used.
+
+Sources:
+- welcome_demo_vault.md
+- project/07-generation-and-judge.md",1.4192476272583008
+interface,easy,Where can I see which notes grounded an answer?,welcome_demo_vault.md,True,RELEVANT,"The generated answer directly addresses the question by telling the user where to see which notes grounded an answer. It specifies the Sources panel under each answer and explains that it shows the notes and chunks used. This is a clear, direct match to the question, with no obvious mismatch or missing core information.","Check the Sources panel under each answer; it shows exactly which notes and chunks grounded it.
+
+Sources:
+- welcome_demo_vault.md
+- project/01-intro.md",0.9721879959106445
+interface,hard,"After I vote on an answer, where does that vote end up and who reads it?",project/08-monitoring-stack.md,True,RELEVANT,"The generated answer directly addresses the question by explaining where the vote is stored and who reads it. It states that the vote goes into the `feedback` table in Postgres and is read by Grafana for dashboards. This is highly relevant to the user's question about the destination and consumer of the vote. Even though the answer may be somewhat specific and could depend on the source text, it clearly attempts to answer the exact asked information rather than drifting off-topic.","Your vote is saved in the `feedback` table in Postgres, attached to the conversation by `conversation_id`. It is read by Grafana, which joins `conversations`, `feedback`, and `judgements` by conversation id to build the dashboards.
+
+Sources:
+- project/08-monitoring-stack.md",1.24676513671875
+ingestion_pipeline,easy,How do notes get from the vault into the search engine?,project/03-ingestion-pipeline.md,True,RELEVANT,"The generated answer directly addresses the question by explaining the path from the vault to the search engine. It mentions the ingestion pipeline, loader, splitter, and indexer, which are plausible components for moving notes into Elasticsearch. This matches the likely content of the cited architecture and ingestion documents and answers the mechanism asked about, rather than drifting to unrelated details. The answer is concise but on-topic and sufficiently specific.","Notes get from the vault into the search engine through the ingestion pipeline: a loader turns files into Documents, a splitter makes overlapping chunks, and an indexer writes those chunks with embeddings into Elasticsearch.
+
+Sources:
+- project/03-ingestion-pipeline.md
+- project/02-architecture.md",1.2451770305633545
+ingestion_pipeline,easy,What happens automatically when the stack starts?,project/03-ingestion-pipeline.md,True,RELEVANT,"The generated answer directly addresses the question by explaining what happens automatically when the stack starts. It mentions the one-shot ingest service, waiting for Elasticsearch, indexing mounted content, and exiting, which appears to be the core automatic behavior described in the sources. It also adds related startup details about the app and Grafana, which are plausible contextual additions. Since the answer is on-topic and substantially answers the question, it is relevant.","When the stack starts, it automatically builds the search index by running the one-shot ingest service, which waits for Elasticsearch, indexes whatever is mounted at `/vault`, prints the counts, and exits. The app and Grafana also come up from the Docker setup, with Grafana provisioned from files so the dashboards are already there.
+
+Sources:
+- project/02-architecture.md
+- project/03-ingestion-pipeline.md",1.3088233470916748
+ingestion_pipeline,easy,How do I reindex after adding a new note?,project/03-ingestion-pipeline.md,False,RELEVANT,"The generated answer directly addresses the question about reindexing after adding a new note. It explains a concrete procedure: place the markdown file into the vault and run `make ingest`, which rebuilds the index from scratch so the new note is included. This is clearly aligned with the likely content of the provided sources about running the project and the demo vault. The answer is specific, actionable, and on-topic, with no obvious mismatch to the question.","Drop the markdown file into the vault, then run `make ingest`. The index is rebuilt from scratch and mirrors the folder, so the new note gets reindexed.
+
+Sources:
+- project/09-running-it.md
+- welcome_demo_vault.md",1.1587741374969482
+ingestion_pipeline,easy,Why is it safe to run the ingestion twice?,project/03-ingestion-pipeline.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why running ingestion twice is safe: deterministic IDs prevent duplicates, reruns overwrite existing chunks, and the process is idempotent. This matches the likely content of the source about the ingestion pipeline and answers the specific why-question rather than drifting to unrelated details. Even without quoting the source verbatim, the answer is clearly on-topic and substantively responsive.","It’s safe because the ingestion uses deterministic IDs based on the source path plus chunk offset, so rerunning it overwrites existing chunks instead of creating duplicates. The index is recreated/mirrors the vault exactly, so repeated runs are idempotent.
+
+Sources:
+- project/03-ingestion-pipeline.md",1.179201364517212
+ingestion_pipeline,hard,Why did batching the embedding calls make ingestion an order of magnitude faster?,project/03-ingestion-pipeline.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why batching embedding calls sped up ingestion: it reduced per-chunk model-call and HTTP-request overhead by processing chunks in a single batch and using bulk writes. It also matches the claimed magnitude of improvement (from about three minutes to about fifteen seconds), which is highly relevant to the question. The answer is concise and on-topic, with no significant deviation from the asked concept.","Batching made ingestion much faster because all chunks were embedded in a single model call and written with one bulk request, instead of doing one model call and one HTTP request per chunk. That reduced the full ingestion time from about three minutes to about fifteen seconds.
+
+Sources:
+- project/03-ingestion-pipeline.md",1.0817866325378418
+monitoring,easy,What gets logged to postgres after every answer?,project/08-monitoring-stack.md,False,RELEVANT,"The generated answer directly addresses the question by listing what is logged to Postgres after every answer. It includes the core fields that would be expected from the monitoring/database documentation: question, answer, course, model, instructions, prompt, token counts, response time, cost, and timestamp. It also mentions additional logged items such as the LLM judge verdict and human vote, which are plausible extensions from the monitoring context. Since the answer is on-topic and substantially answers the question, it is relevant. There may be minor uncertainty about whether every listed field is explicitly logged after every answer, but that does not materially reduce relevance.","After every answer, Postgres logs the conversation record: the question, answer, course, model, instructions, prompt, prompt tokens, completion tokens, total tokens, response time, cost, and timestamp. The notes also say the automatic LLM judge verdict is written, and if the user clicks a thumb, the human vote is logged too.
+
+Sources:
+- project/01-intro.md
+- concepts/monitoring.md
+- llm-zoomcamp-2026/05-monitoring/05-database.md",1.427485704421997
+monitoring,easy,What are the three tables of the monitoring schema?,project/08-monitoring-stack.md,True,RELEVANT,The generated answer directly addresses the question by listing the three tables of the monitoring schema. It matches the expected content from the cited source and does not introduce unrelated information. The answer is concise and appears fully aligned with the question.,"The monitoring schema has three tables:
+- `conversations`
+- `feedback`
+- `judgements`
+
+Sources:
+- project/08-monitoring-stack.md",1.1190214157104492
+monitoring,easy,"What does grafana show, and where does it read from?",project/08-monitoring-stack.md,False,RELEVANT,"The generated answer is highly specific and appears to directly address both parts of the question: what Grafana shows and where it reads from. It lists dashboard contents such as response time, token usage, cost, model usage, relevance distribution, user feedback, and recent conversations, and states that Grafana reads directly from the PostgreSQL database. This matches the likely intent of the source material and does not introduce obvious unrelated content. Without the source text itself, I cannot verify every detail, but the answer is clearly on-topic and likely grounded in the provided document.","Grafana shows dashboards with panels for response time, token usage, cost, model usage, relevance distribution, user feedback, and recent conversations. It reads directly from the PostgreSQL database we already have.
+
+Sources:
+- llm-zoomcamp-2026/05-monitoring/12-grafana.md",1.2327110767364502
+monitoring,easy,What is the difference between the feedback table and the judgements table?,project/08-monitoring-stack.md,True,RELEVANT,"The generated answer directly addresses the question by contrasting the two tables. It explains that the feedback table is for human feedback and can also include judge feedback, while the judgements table stores machine judge outputs for every production answer. It also mentions key differences in coverage, fields, and purpose. This is a strong match to the question and appears consistent with the cited sources. Although the answer is concise and does not mention every possible schema detail, it clearly answers the difference asked.","The `feedback` table stores human feedback and later can also store judge feedback, using a `source` column to distinguish them. It is sparse: most conversations get no vote, and for user feedback it stores things like `score` (+1/-1) and optional comments/relevance/explanation.
+
+The `judgements` table stores the machine judge’s vote for every production answer, so coverage is total. It includes the verdict, the judge’s reasoning, and which model judged.
+
+Sources:
+- llm-zoomcamp-2026/05-monitoring/08-user-feedback.md
+- project/08-monitoring-stack.md",1.4454436302185059
+monitoring,hard,Why can a failure of the judge never block an answer?,project/08-monitoring-stack.md,True,NON_RELEVANT,"The question asks for an explanation of why a failure of the judge can never block an answer. The generated answer does not address this at all; it only says the information could not be found in the vault. This is not an explanation of the concept, mechanism, or policy behind judge failures, and it provides no substantive answer to the question. It is therefore not relevant to the asked content, beyond indicating lack of retrieval.","I could not find why a failure of the judge can never block an answer in the vault.
+
+Sources:
+- project/08-monitoring-stack.md
+",1.065812587738037
+containerization,easy,How is the project containerized?,project/02-architecture.md,True,RELEVANT,"The generated answer directly addresses the question by explaining how the project is containerized. It mentions Docker, the main application image, and the supporting services, which are all relevant details for describing the containerization setup. It also includes specific mounting behavior and service roles that appear to come from the source documents. Since the answer is focused on the asked topic and provides a concrete description rather than unrelated information, it is relevant.","The project is containerized with Docker. One image contains the Python code and serves three roles: the web app, Jupyter, and a one-shot ingestion job. Around it are separate services for Elasticsearch, Postgres, Grafana, and an optional Ollama LLM. The app bind-mounts the package for live code edits, the notebook mounts the whole repository at `/project`, and the vault is mounted read-only at `/vault`.
+
+Sources:
+- project/02-architecture.md
+- project/03-ingestion-pipeline.md",1.4375150203704834
+containerization,easy,Which services make up the docker compose stack?,project/02-architecture.md,True,RELEVANT,"The answer directly addresses the question by listing the services in the Docker Compose stack. It mentions PostgreSQL, Grafana, Streamlit, Elasticsearch, and an optional Ollama service. Since the question asks which services make up the stack, this is clearly on-topic and provides a substantive answer. Even if the exact stack composition may depend on the source details, the response is still relevant because it attempts to enumerate the compose services rather than drifting to unrelated content.","The Docker Compose stack includes PostgreSQL, Grafana, and the Streamlit app. In the project architecture, Elasticsearch is also part of the stack for search, and there is an optional Ollama service for a local LLM.
+
+Sources:
+- project/02-architecture.md
+- llm-zoomcamp-2026/05-monitoring/13-docker-compose.md",1.6174819469451904
+containerization,easy,Why do the app and the notebook service share the same image?,project/02-architecture.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why the app and notebook service use the same image: to run the same code in both containers, with differences coming from mounts rather than the base image. This matches the likely architectural explanation in the source and stays on topic. It is specific, coherent, and answers the 'why' clearly rather than drifting into unrelated details.","The app and notebook service share the same image so the same code runs in both containers, while the different mounts make them behave differently: the app bind-mounts the package for live edits, and the notebook mounts the whole repo at `/project` for the workshop. The image underneath is the same, so what runs in one is exactly what runs in the others.
+
+Sources:
+- project/02-architecture.md",1.2237937450408936
+containerization,easy,What is the optional ollama service for?,project/02-architecture.md,True,RELEVANT,"The generated answer directly addresses the question by explaining the purpose of the optional Ollama service. Even though it is brief, it states that the service runs a local LLM, which is a relevant functional description of what Ollama is for in this context. There is no obvious contradiction or off-topic content.","The optional Ollama service runs a local LLM.
+
+Sources:
+- project/02-architecture.md",1.140596628189087
+containerization,hard,"Why does editing code not require rebuilding the image, while changing the env file requires recreating the container?",project/02-architecture.md,True,RELEVANT,"The generated answer directly addresses the question by explaining the difference between bind-mounted code and environment variables loaded at container creation. It correctly states that code edits are reflected immediately because of runtime mounting, while changes to the env file require recreating the container because environment variables are captured when the container is created. This matches the likely intent of the source material and answers both parts of the question clearly.","Editing code does not require rebuilding the image because the code is bind mounted at runtime, so the container sees the live host files and edits apply immediately.  
+Changing the `.env` file requires recreating the container because containers read environment variables only at creation time; a restart keeps the old environment snapshot.
+
+Sources:
+- project/02-architecture.md
+- project/09-running-it.md",1.324937343597412
+reproducibility,easy,What do I need to run this project from a fresh clone?,project/09-running-it.md,True,RELEVANT,"The generated answer directly addresses the question by listing the steps needed to run the project from a fresh clone. It mentions cloning the repository, setting up the .env file with the required API key, starting services with Docker Compose, and initializing the database. This is highly aligned with the question and appears to be grounded in the cited source. Although it is concise and may omit some minor setup details, it clearly answers what is needed to run the project.","From a fresh clone, you need:
+
+- `git clone <repo>`
+- copy `.env.example` to `.env` and paste your `OPENAI_API_KEY`
+- `docker compose up -d`
+- `make init-db`
+
+The notes also say the only mandatory value in `.env` is the API key.
+
+Sources:
+- project/09-running-it.md",2.9001073837280273
+reproducibility,easy,How do I point the assistant at my own notes?,project/09-running-it.md,False,PARTLY_RELEVANT,"The generated answer directly addresses the question by stating that it could not find instructions for pointing the assistant at the user's own notes in the vault. However, it does not actually explain how to do it, nor does it provide any actionable guidance or details from the sources. Since the response is about the same topic but fails to answer the question substantively, it is only partially relevant.","I could not find how to point the assistant at your own notes in the vault.
+
+Sources:
+- concepts/monitoring.md
+- llm-zoomcamp-2026/05-monitoring/02-assistant-setup.md",1.1852359771728516
+reproducibility,easy,"Can the reported evaluation numbers be reproduced, and how?",project/09-running-it.md,True,RELEVANT,"The generated answer directly addresses the question of whether the reported evaluation numbers can be reproduced and explains how: it says they are reproducible on a fresh clone, points to the committed ground truth file, and specifies running evaluation on the `llm-zoomcamp-2026/` subfolder rather than the full demo vault. It also explains why the full vault differs. This is a clear, on-topic response grounded in the provided sources, so it is relevant.","Yes. The notes say the reported numbers are reproducible on a fresh clone because the demo vault contains the same course notes the evaluation targets, and the ground truth is committed at `data/claude_ground_truth.json`. To reproduce them, run the evaluation on the `llm-zoomcamp-2026/` subfolder alone; the full demo vault gives slightly different results because extra documentation notes compete for top-10 slots.
+
+Sources:
+- project/09-running-it.md
+- welcome_demo_vault.md
+- llm-zoomcamp-2026/04-evaluation/01-intro-evaluation.md",1.3396470546722412
+reproducibility,easy,"Which make commands exist, and what does each one do?",project/09-running-it.md,True,RELEVANT,"The generated answer directly addresses the question by listing the make commands and explaining what each one does. It appears to summarize multiple commands from the referenced notes, including startup/shutdown, database setup, reindexing, reloading, logs/URLs, and additional run/chat/postgres commands. Since the question asks which make commands exist and what each does, this is highly aligned with the requested information. There is no obvious off-topic content; the answer is focused on command enumeration and descriptions. Even if some commands may be incomplete or sourced from multiple documents, the response is still relevant to the question.","The notes mention these make commands and what they do:
+
+- `make up / down` — start and stop the stack
+- `make ingest` — reindex the vault
+- `make init-db` — create the tables, idempotent
+- `make reset-db` — rebuild the tables and erase the history
+- `make check-db` — peek at the last conversations
+- `make reload-app` — apply `.env` changes to the app
+- `make reload-notebook` — apply `.env` changes to Jupyter; kills the kernel, so save first
+- `make logs / urls` — follow the app logs and print the addresses
+
+The notes also say:
+- `make run` starts the notebook container and runs `assistant.py` inside it.
+- `make chat` starts the notebook container and runs Streamlit for the web app.
+- `make postgres` creates the monitoring network first, then starts PostgreSQL.
+
+Sources:
+- project/09-running-it.md
+- concepts/monitoring.md
+- llm-zoomcamp-2026/05-monitoring/05-database.md",2.6420161724090576
+reproducibility,hard,Why does the retrieval evaluation give slightly different numbers over the full demo vault than the ones reported?,project/09-running-it.md,True,RELEVANT,"The generated answer directly addresses the question by explaining why the retrieval evaluation differs on the full demo vault versus the reported numbers. It states that extra documentation notes in the demo vault compete for top-10 retrieval slots, and that the reported numbers were reproduced on the original subfolder alone. This is clearly aligned with the question and provides a plausible, specific explanation rather than unrelated content. Even though the exact numeric claim may not be verifiable from the prompt alone, the answer is on-topic and responsive.","The retrieval evaluation gives slightly different numbers over the full demo vault because the demo vault includes extra documentation notes that discuss the same topics as the course corpus and compete for the top-10 retrieval slots. The reported numbers reproduce on the original `llm-zoomcamp-2026/` subfolder alone, but over the full demo vault the hit rate drops to around 0.68 for that reason.
+
+Sources:
+- project/09-running-it.md
+- welcome_demo_vault.md",1.5185456275939941
+best_practices,easy,"What is hybrid search, and does this project use it?",project/05-search-and-index.md,True,RELEVANT,"The generated answer directly addresses both parts of the question: it explains what hybrid search is and states whether the project uses it. The explanation is relevant and specific, mentioning fusion of text and vector search and the project’s default use of hybrid search. However, the answer adds a concrete implementation detail (“reciprocal rank fusion”) and a performance claim (“because it beat each method alone on the ground truth”) that may or may not be supported by the provided sources. Even so, the core content is on-topic and responsive to the question, so it should be considered relevant rather than partially relevant or non-relevant.","Hybrid search fuses text search and vector search using reciprocal rank fusion: it combines their rank positions rather than raw scores, so chunks that rank well in both lists get boosted. In this project, yes — hybrid search is the application default because it beat each method alone on the ground truth.
+
+Sources:
+- project/05-search-and-index.md
+- concepts/evaluation.md",1.2344214916229248
+best_practices,easy,What does the cross-encoder reranker do?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by explaining the function of the cross-encoder reranker: it jointly evaluates query-chunk pairs, rescoring candidates more precisely and improving ranking quality. It also mentions the practical effect of keeping the best 10 from a larger candidate set, which is a plausible implementation detail consistent with a reranker. Since the answer is on-topic and answers what the reranker does, it is highly relevant. Minor caveat: it includes specific numbers (top 30, best 10) that may or may not be explicitly supported by the sources, but this does not undermine relevance to the question.","The cross-encoder reranker takes the top 30 hybrid-search candidates, reads each question–chunk pair jointly, rescoring them with more precision, and keeps the best 10. It is meant to improve ordering, especially for near misses where the right note is in the candidate set but not ranked first.
+
+Sources:
+- project/05-search-and-index.md
+- project/06-retrieval-evaluation.md
+- project/01-intro.md",1.3207857608795166
+best_practices,easy,"What did reranking improve, and what did it cost?",project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question by stating both what reranking improved and what it cost. It summarizes the improvement in retrieval metrics (hit rate, MRR, rank-1 answers, hard subset) and the tradeoff (slight loss on the saturated easy subset and added CPU time per question). This is highly aligned with the question and appears to be a faithful, specific answer rather than a generic or tangential response.","Reranking improved retrieval ordering: on the full ground truth, hit rate went from 0.755 to 0.765 and MRR from 0.491 to 0.543, with rank-1 answers rising from 74 to 91 and the hard subset from 0.68 to 0.70. It cost about two points on the saturated easy subset and about four seconds per question on CPU.
+
+Sources:
+- project/06-retrieval-evaluation.md
+- project/01-intro.md",1.4480831623077393
+best_practices,easy,Is query rewriting implemented in this project?,project/06-retrieval-evaluation.md,True,PARTLY_RELEVANT,"The question asks whether query rewriting is implemented in the project. The generated answer directly addresses this by stating that it could not be found in the provided notes. This is a cautious, on-topic response that attempts to answer the implementation-status question, even though it does not provide evidence or a definitive yes/no. Since it is clearly about query rewriting and the project, it is relevant, but only partially because it lacks a concrete determination.","I could not find whether query rewriting is implemented in this project in the provided notes.
+
+Sources:
+- project/06-retrieval-evaluation.md
+- project/05-search-and-index.md",0.9523446559906006
+best_practices,hard,Why does reranking barely change the hit rate while improving MRR a lot?,project/06-retrieval-evaluation.md,True,RELEVANT,"The generated answer directly addresses the question and gives the standard explanation for the observed metric behavior: reranking usually does not affect whether the relevant item is present in the retrieved set, so hit rate remains nearly unchanged, but it can substantially improve the position of the relevant item within that set, which increases MRR. This is exactly the relationship the question asks about, and the answer is concise and on-topic.","Because reranking mostly changes the order of already-retrieved candidates, not whether the relevant note is retrieved at all. So hit rate stays about the same, while MRR improves because the relevant document is moved closer to rank 1.
+
+Sources:
+- project/06-retrieval-evaluation.md
+- concepts/evaluation.md",2.469127655029297

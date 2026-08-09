@@ -6,8 +6,17 @@ from dataclasses import dataclass
 
 # dollars per million tokens: (input, output). Update here when prices
 # or models change; nothing else in the project knows about pricing.
+# dollars per million tokens (input, output), short context, standard tier.
+# Source: openai pricing page, copied 2026-08-09 (data/gpt_pricing.md)
 PRICES = {
-    "gpt-5.4-mini": (0.25, 2.00),
+    "gpt-5.6-sol":   (5.00, 30.00),
+    "gpt-5.6-terra": (2.00, 12.00),
+    "gpt-5.6-luna":  (0.20, 1.20),
+    "gpt-5.4":       (2.50, 15.00),
+    "gpt-5.4-mini":  (0.75, 4.50),   # corrigido, era 0.25/2.00
+    "gpt-5.4-nano":  (0.20, 1.25),
+    "gpt-5-mini":    (0.25, 2.00),
+    "gpt-5-nano":    (0.05, 0.40),
 }
 
 
