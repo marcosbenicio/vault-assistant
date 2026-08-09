@@ -3,6 +3,15 @@ from sentence_transformers import CrossEncoder
 from cleaner import Document
 
 
+def _folder_scope(folder):
+    """Exact subtree filter: the folder itself or anything under it,
+    never a sibling that merely shares the name prefix ("project"
+    must not match "project-archive")."""
+    return {"bool": {"minimum_should_match": 1,
+                     "should": [{"term": {"folder": folder}},
+                                {"prefix": {"folder": folder + "/"}}]}}
+
+
 class VaultSearcher:
     """The four plain search modes over the indexed vault: bm25 text,
     knn vector, their reciprocal rank fusion, and cross-encoder
@@ -18,8 +27,8 @@ class VaultSearcher:
 
     def text(self, query, num_results=5, folder=None):
         """BM25 over content plus title, title worth double. An
-        optional folder narrows the scope to that subtree (prefix
-        match, so "a" covers "a/b" too) without touching scores."""
+        optional folder narrows the scope to that exact subtree
+        without touching scores."""
         body = {"bool": {
             "must": {
                 "multi_match": {
@@ -30,7 +39,7 @@ class VaultSearcher:
             }
         }}
         if folder:
-            body["bool"]["filter"] = {"prefix": {"folder": folder}}
+            body["bool"]["filter"] = _folder_scope(folder)
 
         resp = self.es_client.search(
             index=self.index,
@@ -53,7 +62,7 @@ class VaultSearcher:
             "num_candidates": 1000,
         }
         if folder:
-            knn["filter"] = {"prefix": {"folder": folder}}
+            knn["filter"] = _folder_scope(folder)
 
         resp = self.es_client.search(
             index=self.index,

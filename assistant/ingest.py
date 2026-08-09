@@ -49,7 +49,7 @@ class SlidingWindowSplitter:
         return chunks
 
 class VaultLoader:
-    """Loads an Obsidian vault as Documents.
+    """Loads a vault of markdown notes as Documents.
 
     Same interface as a LangChain document loader: lazy_load() yields
     Documents one at a time, load() returns them as a list. Hidden paths

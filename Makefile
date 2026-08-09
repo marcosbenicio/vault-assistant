@@ -3,7 +3,8 @@
 
 EXEC = docker compose exec --workdir /app app
 
-# start the whole stack, API-only default (what a fresh clone runs)
+# start the whole stack, local llm included (what a fresh clone runs;
+# the first start pulls the ollama image and a basic local model)
 up:
 	docker compose up -d
 
@@ -27,6 +28,18 @@ reload-notebook:
 # apply .env changes to the app; just a quick Streamlit blink
 reload-app:
 	docker compose up -d --force-recreate app
+
+# switch the app's color palette (saved themes live in
+# assistant/.streamlit/themes/; add a toml there to add a palette)
+theme-kimbie:
+	cp assistant/.streamlit/themes/kimbie.toml assistant/.streamlit/config.toml
+	docker compose restart app
+theme-friedrich:
+	cp assistant/.streamlit/themes/friedrich.toml assistant/.streamlit/config.toml
+	docker compose restart app
+theme-default:
+	rm -f assistant/.streamlit/config.toml
+	docker compose restart app
 
 # create the postgres tables (run once after the first up)
 init-db:

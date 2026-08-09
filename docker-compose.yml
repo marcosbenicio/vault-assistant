@@ -1,5 +1,5 @@
 # ==============================================================================
-# Obsidian Assistant stack
+# Vault Assistant stack
 # ==============================================================================
 # Self-contained: search engine, database, dashboards, the app and a Jupyter
 # service for development and evaluation notebooks. App and notebook share
@@ -96,8 +96,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pswd}
       APP_POSTGRES_DB: "obsidian_assistant"
       VAULT_PATH: "/vault"
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-gpt-5.4-mini}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-5.6-luna}
       LLM_API_KEY: ${LLM_API_KEY:-ollama}
       EMBED_MODEL: ${EMBED_MODEL:-all-MiniLM-L6-v2}
       ES_INDEX: ${ES_INDEX:-obsidian_notes}
@@ -162,24 +162,27 @@ services:
       - assistant-net
 
   # ----------------------------------------------------------------------------
-  # ollama - optional local LLM, off by default. Start it with:
-  #   docker compose --profile ollama up -d
-  #   docker compose exec ollama ollama pull qwen2.5:7b-instruct
-  # and point the app at it in .env:
-  #   LLM_BASE_URL=http://ollama:11434/v1
-  #   LLM_MODEL=qwen2.5:7b-instruct
-  # For GPU acceleration combine with docker-compose.gpu.yml.
+  # ollama - the local LLM, part of the default stack. On first start it
+  # pulls a basic model (qwen2.5:1.5b, ~1 GB) so the app always has a
+  # local option; better models are downloaded from the app's sidebar
+  # (Local models). The pull is idempotent: later starts see the model
+  # in the volume and skip it. NVIDIA gpu (optional):
+  #   cp docker-compose.gpu.yml docker-compose.override.yml && docker compose up -d
   # ----------------------------------------------------------------------------
   ollama:
     image: ollama/ollama
     container_name: assistant_ollama
     restart: unless-stopped
-    profiles: ["ollama"]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama serve & sleep 3; ollama pull qwen2.5:1.5b; wait"]
     environment:
-      OLLAMA_CONTEXT_LENGTH: 8192 
+      OLLAMA_CONTEXT_LENGTH: 8192
       OLLAMA_FLASH_ATTENTION: 1
       OLLAMA_KV_CACHE_TYPE: "q8_0"
       OLLAMA_KEEP_ALIVE: -1
+      # one resident model at a time: switching evicts the previous one,
+      # so the active model always gets the whole gpu (or all the ram)
+      OLLAMA_MAX_LOADED_MODELS: 1
 
     ports:
       - "${OLLAMA_PORT:-11434}:11434"

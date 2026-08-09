@@ -1,0 +1,9 @@
+# "Two Men Contemplating the Moon" (Caspar David Friedrich), fourth
+# reading: warm dusk canvas, controls in the coats' deep forest green,
+# and the text in that same green hue lifted to reading luminance.
+[theme]
+base = "dark"
+primaryColor = "#456851"
+backgroundColor = "#271b0f"
+secondaryBackgroundColor = "#39291a"
+textColor = "#8caf99"

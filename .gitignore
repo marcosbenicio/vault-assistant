@@ -16,3 +16,4 @@ __pycache__/
 # Never commit vault content
 vault/
 _playground/
+docker-compose.override.yml

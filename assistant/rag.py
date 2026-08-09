@@ -1,17 +1,4 @@
-import os
 import time
-
-from openai import OpenAI
-
-
-def create_llm_client():
-    """OpenAI by default; any OpenAI-compatible server (Ollama) when
-    LLM_BASE_URL is set. The api key for local servers is a dummy,
-    because they do not check keys."""
-    base_url = os.getenv("LLM_BASE_URL")
-    if base_url:
-        return OpenAI(base_url=base_url, api_key=os.getenv("LLM_API_KEY", "ollama"))
-    return OpenAI()
 
 
 class ObsidianRAG:
@@ -23,7 +10,7 @@ class ObsidianRAG:
     """
 
     INSTRUCTIONS = """
-    You are the assistant for a personal Obsidian vault.
+    You are the assistant for a personal vault of markdown notes.
 
     Answer the question using only the provided context,
     which contains parts of the owner's notes. Each part starts with its source path.
@@ -73,14 +60,24 @@ class ObsidianRAG:
         retrieval_time = time.time() - retrieval_started
         prompt = self.build_prompt(question, documents)
 
-        response = self.llm_client.chat.completions.create(
-            model=self.model,
-            temperature=0.0,
-            messages=[
+        params = {
+            "model": self.model,
+            "temperature": 0.0,
+            "messages": [
                 {"role": "system", "content": self.INSTRUCTIONS},
                 {"role": "user", "content": prompt},
             ],
-        )
+        }
+        try:
+            response = self.llm_client.chat.completions.create(**params)
+        except Exception as exc:
+            # reasoning-class api models reject an explicit temperature
+            # and only run at their default; determinism is lost there
+            # by provider design, not by choice
+            if "temperature" not in str(exc):
+                raise
+            del params["temperature"]
+            response = self.llm_client.chat.completions.create(**params)
 
         return {
             "answer": response.choices[0].message.content,

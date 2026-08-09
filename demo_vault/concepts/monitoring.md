@@ -246,7 +246,7 @@ run:
 
 # Chat App
 
-app.py builds the interface. It imports create_assistant from assistant.py, shows a text input and a button, and on click runs the full RAG loop inside a spinner. My one deviation from the lesson is the st.cache_resource decorator: without it, the rerun model of Streamlit would download and reindex the whole FAQ on every interaction. The decorator creates the assistant once and reuses it across reruns, which is also mandatory in the final project, where rebuilding the index means rereading the whole Obsidian vault.
+app.py builds the interface. It imports create_assistant from assistant.py, shows a text input and a button, and on click runs the full RAG loop inside a spinner. My one deviation from the lesson is the st.cache_resource decorator: without it, the rerun model of Streamlit would download and reindex the whole FAQ on every interaction. The decorator creates the assistant once and reuses it across reruns, which is also mandatory in the final project, where rebuilding the index means rereading the whole vault.
 
 
 

@@ -70,25 +70,40 @@ the api and qwen2.5 7b through the local ollama, every answer judged:
 
 ```
                       relevant   partly   non    seconds   dollars
+gpt-5.6-luna          0.82       0.10     0.08   2.4       0.001
 gpt-5.4-mini          0.76       0.06     0.18   1.4       0.001
 qwen2.5:7b-instruct   0.60       0.32     0.08   70.5      0
 ```
 
-The api model wins on every axis but price. The failure profiles
-differ in character: when retrieval brings no useful context, gpt
+The api models win on every axis but price. The failure profiles
+differ in character: when retrieval brings no useful context, mini
 refuses honestly (its NON_RELEVANT cases are "could not find it in the
 vault" answers, the intended behavior), while qwen wanders around
 loosely related content, which the judge scores PARTLY_RELEVANT.
+
+Luna, added to the same bench later, took the crown: 82% RELEVANT with
+the refusal rate cut from 18% to 8%, at about a third of mini's token
+price and two seconds per answer. It is now the default answer model.
+The judge and the query rewriter stay on gpt-5.4-mini: that pair is
+validated and deterministic, while the 5.6 family only runs at the
+provider's default temperature, so luna's answers can vary between
+runs — acceptable for answering, not for judging or measuring.
 
 ## The ceiling analysis
 
 The strongest finding ties the two evaluations together. Given the
 retrieval hit rates (0.98 easy, 0.68 hard) and the sample's difficulty
 mix, a generator that answered perfectly whenever the right note
-arrived would score about 76% RELEVANT on this sample. gpt sits
+arrived would score about 76% RELEVANT on this sample. mini sits
 exactly on that line: it converts essentially every retrieved context
 into a relevant answer, and its failures are the retrieval misses. The
 local model sits 16 points below the ceiling, its own generation loss.
+Luna lands above the line, at 82%, which sounds impossible until the
+ceiling's own assumption is read closely: the line was computed for a
+generator answering only from the expected note, and luna converts
+the alternative retrieved notes more often — the exact nuance the
+cross-check below documents as the single-note ground truth
+understating the real system.
 
 A per-question cross-check confirmed the link: good verdicts line up
 with retrieval hits, bad ones with misses, with two nuances that

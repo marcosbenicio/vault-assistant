@@ -4,7 +4,8 @@ tags: [project, ingestion]
 
 # Note cleaning
 
-Obsidian markdown is full of syntax that would pollute search and
+Vault markdown, in the wikilink dialect Obsidian popularized, is full
+of syntax that would pollute search and
 prompts: wikilinks, embeds, images with size annotations, markdown
 links, url-encoded paths, anchors. The cleaner's job is to leave
 exactly what a human reader would see in the rendered note, while
@@ -15,7 +16,7 @@ metadata fields instead of losing it.
 
 The cleaner recognizes four syntaxes, processed from most specific to
 most generic so the specific rule never gets swallowed by the generic
-one: Obsidian embeds `![[target]]`, markdown images `![alt](file)`,
+one: wikilink embeds `![[target]]`, markdown images `![alt](file)`,
 wikilinks `[[target|alias]]` and markdown links `[label](target)`.
 Classification looks only at url scheme and file extension, never at
 content, so the rules work on any vault:

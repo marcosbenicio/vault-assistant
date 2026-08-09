@@ -1,0 +1,9 @@
+# Kimbie Dark, the project's face: the same palette as the author's
+# editor, mapped slot by slot (editor background, sidebar background,
+# foreground, and the orange accent for controls).
+[theme]
+base = "dark"
+primaryColor = "#f06431"
+backgroundColor = "#221a0f"
+secondaryBackgroundColor = "#362712"
+textColor = "#fafafa"

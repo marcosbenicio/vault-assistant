@@ -49,7 +49,8 @@ class Document:
 
 
 class NoteCleaner:
-    """Prepares raw Obsidian markdown for indexing.
+    """Prepares raw vault markdown (the wikilink dialect Obsidian
+    popularized) for indexing.
 
     Every link syntax has a target, and the target decides its fate:
     notes become weighted graph edges, attachments and sizes disappear,
@@ -64,7 +65,7 @@ class NoteCleaner:
     """
 
     # the four syntaxes, from most specific to most generic:
-    OBSIDIAN_EMBED = re.compile(r"!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]")   # ![[target|size]]
+    WIKILINK_EMBED = re.compile(r"!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]")   # ![[target|size]]
     MARKDOWN_IMAGE = re.compile(r"!\[([^\]\n]*)\]\(([^)\n]+)\)")      # ![alt](file)
     WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")        # [[target|alias]]
     MARKDOWN_LINK = re.compile(r"\[([^\]\n]+)\]\(([^)\n]+)\)")        # [label](target)
@@ -86,7 +87,7 @@ class NoteCleaner:
     def clean(self, text):
         """Run every pass in order and return the three products.
 
-        Order matters: an obsidian embed contains the image pattern, and
+        Order matters: a wikilink embed contains the image pattern, and
         an image contains the link pattern, so the most specific rule
         runs first or the generic one swallows its cases.
         """
@@ -103,7 +104,7 @@ class NoteCleaner:
         external url, or something else?
 
         When the extension decides nothing, unknown_means breaks the
-        tie: wikilinks lean note, because obsidian wikilinks rarely
+        tie: wikilinks lean note, because vault wikilinks rarely
         point at files, while markdown links lean other, because file
         paths are common in that dialect. A trailing slash is a folder,
         never a note.
@@ -137,7 +138,7 @@ class NoteCleaner:
         return target.split("/")[-1].strip()
 
     def _clean_embeds(self, text, references):
-        """Obsidian embeds: ![[target]] with an optional |size.
+        """Wikilink embeds: ![[target]] with an optional |size.
 
         An embedded attachment is pure display, it vanishes without a
         trace. An embedded note is a transclusion, the strongest kind of
@@ -156,7 +157,7 @@ class NoteCleaner:
                 references.append(name)
             return name
 
-        return self.OBSIDIAN_EMBED.sub(replace_embed, text)
+        return self.WIKILINK_EMBED.sub(replace_embed, text)
 
     def _clean_images(self, text):
         """Markdown images: ![alt](file).
