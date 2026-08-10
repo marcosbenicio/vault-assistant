@@ -390,6 +390,22 @@ elif not st.session_state.get("vault_notice_ok"):
         "and reconnects the app; from then on, answers come from your "
         "vault. Back to the demo: `make vault VAULT=demo`.",
         icon="ℹ️")
+    # the OK visually docks onto the info balloon: full width, no gap,
+    # same blue family (native widgets cannot live inside st.info)
+    st.sidebar.markdown("""
+        <style>
+        .st-key-vault-notice-ok button {
+            width: 100%;
+            margin-top: -0.9rem;
+            background-color: rgba(61, 157, 243, 0.12);
+            border: 1px solid rgba(61, 157, 243, 0.45);
+            color: #9ec9f5;
+        }
+        .st-key-vault-notice-ok button:hover {
+            border-color: #3d9df3;
+            color: #d6e9ff;
+        }
+        </style>""", unsafe_allow_html=True)
     if st.sidebar.button("OK", key="vault-notice-ok"):
         st.session_state["vault_notice_ok"] = True
         st.rerun()
@@ -422,6 +438,15 @@ if not use_judge:
 if search_mode == "rerank":
     st.sidebar.caption("The first rerank question downloads the "
                        "cross-encoder (~80 MB) on a fresh install.")
+if not host_vault:
+    st.sidebar.caption(
+        "\U0001F4AC Questions about the project? Ask the assistant "
+        "itself. With the demo vault active, it answers directly from "
+        "the project's own documentation. Try questions like \"explain "
+        "the sidebar settings\", \"how do I point this at my own "
+        "notes?\", or \"how do I run the local models on GPU?\".\n\n"
+        "Stronger models generally produce more complete and precise "
+        "answers from the same retrieved context.")
 
 # ---- the page ----
 

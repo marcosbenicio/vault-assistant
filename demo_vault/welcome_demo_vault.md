@@ -59,14 +59,21 @@ Drop any markdown files in this folder (subfolders work too), then:
 
     make ingest
 
-Ask about your new content in the app. That is the whole loop. To
-remove something, delete the file and run `make ingest` again: the
-index is rebuilt from scratch every time, so it always mirrors the
-folder exactly.
+Ask about your new content in the app. That is the whole loop — and
+it also works without a terminal: the **Reingest vault** button in
+the app's sidebar runs the same pipeline in place. To remove
+something, delete the file and reingest again: the index is rebuilt
+from scratch every time, so it always mirrors the folder exactly.
 
 ## Use a real vault instead
 
-When you want the assistant reading your own notes, set `VAULT_PATH`
-in the `.env` file to your folder (on WSL, `C:\` becomes `/mnt/c/`),
-then run `make ingest` and `make reload-app`. This demo folder stays
-untouched and you can switch back anytime by commenting the line out.
+When you want the assistant reading your own notes, one command from
+the project root does everything:
+
+    make vault VAULT=/abs/path/to/your/notes
+
+It stores the path in `.env`, indexes your notes and reconnects the
+app (on WSL, a Windows path like `C:\` becomes `/mnt/c/`). This demo
+folder stays untouched, and `make vault VAULT=demo` switches back
+anytime. The full story, including the manual steps and the Windows
+variants, is in [[09-running-it]].

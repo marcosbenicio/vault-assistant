@@ -302,7 +302,11 @@ a Windows path like `C:\Users\you` becomes `/mnt/c/Users/you`. Second,
 `make ingest`: the one-shot reads the new mount and rebuilds the index
 from your notes. Third, `make reload-app`, so the app container is
 recreated with the new mount too. Ask something only your notes know
-to confirm the switch.
+to confirm the switch. (These three steps are exactly what
+`make vault` runs for you in one command; on plain Windows without a
+POSIX shell, run the two docker compose commands directly:
+`docker compose run --rm ingest`, then
+`docker compose up -d --force-recreate app`.)
 
 ## Using it with Obsidian
 
