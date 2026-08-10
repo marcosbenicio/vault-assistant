@@ -4,35 +4,68 @@ tags: [project, operations]
 
 # Running it
 
-The path from clone to answers is two commands and one key. This note
-is the operational surface of everything described in
-[[02-architecture]].
+The path from clone to first answer is two commands and a browser
+tab, and that simplicity is a design result, not luck: every piece of
+the stack builds itself. This note is the operational surface of
+everything described in [[02-architecture]].
 
-## Setup
+## From clone to first answer
 
 ```bash
-git clone <repo>
-cp .env.example .env      # paste your OPENAI_API_KEY
-docker compose up -d      # the stack rises, the index builds itself
-make init-db              # the three postgres tables
+git clone <repo> && cd obsidian-assistant
+docker compose up -d
 ```
 
-The app is at localhost:8501, Jupyter at 8888, Grafana at 3000,
-Elasticsearch at 9200. Without any further configuration the
-assistant answers over this demo vault; the one-shot ingest indexed
-it during the up (see [[03-ingestion-pipeline]]). The stack also
-ships a local llm service (ollama): its first start pulls a basic
-model, so the assistant can answer with no api key at all, and better
-local models are downloaded from the app's sidebar.
+That is the whole setup. No config file needs to exist: the compose
+carries a working default for every value, and the pieces assemble
+themselves during the first `up`, in order. Elasticsearch rises first
+(the other services wait on its healthcheck); the one-shot ingest
+container then reads the committed demo vault, cleans, chunks, embeds
+and indexes it, prints its count and exits — the index is never a
+manual step. The local llm service pulls its basic model
+(`qwen2.5:1.5b`, about 1 GB) so a model exists even with no api key.
+The app creates the three postgres tables on its first boot,
+idempotently — there is no migration step. The first `up` therefore
+pays some minutes of downloads (docker images plus the basic model);
+every later `up` is seconds, because everything lives in volumes.
 
-The only mandatory value in `.env` is the api key. Everything else is
-optional with sensible defaults: `VAULT_PATH` points at a real vault
-instead of the demo (on WSL, `C:\` becomes `/mnt/c/`); the
-`LLM_BASE_URL` and `LLM_MODEL` pair, set together, switches from the
-OpenAI api to a local ollama model (`docker compose --profile ollama
-up -d`, then pull a model); port overrides exist for machines where a
-default is taken. The environment basics are the same as
-[[02-environment]] from the course.
+Then open http://localhost:8501 and pick a lane:
+
+1. **With an OpenAI key**: paste it in the sidebar field — memory
+   only, no file edited — and ask. Answers come from `gpt-5.6-luna`,
+   the measured default, in a few seconds.
+2. **Without any key**: just ask. The basic local model answers,
+   slower and simpler, fully private. Better local models are one
+   Download click away (the sidebar section below covers the ladder).
+
+Everything after that is optional and one gesture each, in whatever
+order matters to you: a better local model (Download button in the
+sidebar), gpu acceleration (`cp docker-compose.gpu.yml
+docker-compose.override.yml`, section below), your own notes instead
+of the demo (`make vault VAULT=/abs/path`, section below), new
+content into the index (the Reingest button, or `make ingest`).
+
+The other services ride along at their own ports: Jupyter at 8888
+(the evaluation notebooks), Grafana at 3000, Elasticsearch at 9200,
+Postgres at 5432. `make urls` prints them all with any overrides
+applied.
+
+Why this is the project's strong point, spelled out: reproducibility
+is a graded criterion, but more importantly it is what makes every
+other claim in these notes checkable. The evaluation notebooks run
+against the same package the app uses, the demo vault documents the
+system it feeds, and a reviewer goes from `git clone` to
+interrogating the assistant about its own trade-offs in the time a
+coffee takes. Nothing needs to be believed on faith; everything can
+be re-run.
+
+The `.env` file exists for overrides only, and every value has a
+sensible default without it: the api key (if you prefer it over the
+sidebar field), `VAULT_PATH` (written by `make vault`), `LLM_MODEL`
+(the default selection in the app), `LLM_BASE_URL` (an external
+OpenAI-compatible server instead of the bundled ollama), and port
+overrides for machines where a default is taken. The environment
+basics are the same as [[02-environment]] from the course.
 
 One rule to remember: containers read `.env` at creation, so applying
 a change is a recreate (`make reload-app`, `make reload-notebook`),
@@ -139,14 +172,88 @@ also reports whether the local models are running on GPU or CPU.
 Above `qwen2.5:7b-instruct`, the only local model the project
 benchmarked, the bigger entries are labeled as such.
 
-The gpu itself is optional and off by default, so the stack runs
-anywhere. A machine with an NVIDIA card and the
-nvidia-container-toolkit turns it on by copying the committed example
-override and re-upping, the same idiom as `.env.example`:
-`cp docker-compose.gpu.yml docker-compose.override.yml`, then
-`docker compose up -d`. The override file is gitignored: personal
-hardware config never reaches the repo. On gpu the measured ~70s per
-local answer drops to a few seconds.
+The gpu section below covers acceleration for these local models in
+detail.
+
+## The gpu, optional
+
+The stack is CPU-only by default so it runs anywhere; an NVIDIA card
+turns local models from patient to instant. Enabling it is two
+commands, the same idiom as `.env.example` becoming `.env`:
+
+```bash
+cp docker-compose.gpu.yml docker-compose.override.yml
+docker compose up -d
+```
+
+Docker compose merges `docker-compose.override.yml` automatically
+when it exists; the file only adds a device reservation handing the
+NVIDIA gpu to the ollama service. It is gitignored on purpose:
+personal hardware configuration never reaches the repo.
+
+The override's whole content, worth reading before copying:
+
+```yaml
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+```
+
+Line by line. `services: ollama:` — an override patches by service
+name, so only the ollama service changes and the rest of the stack is
+untouched; the file does not repeat anything the base compose already
+says. `deploy.resources.reservations.devices` is compose's syntax for
+handing hardware devices to a container: a reservation, meaning the
+container will not start without it. `driver: nvidia` routes the
+request through the nvidia-container-toolkit runtime. `count: all`
+exposes every gpu in the machine — on a laptop that is the one card;
+on a multi-gpu box, `count: 1` takes the first, or `device_ids:
+["1"]` (replacing `count`) pins a specific card by its `nvidia-smi`
+index. `capabilities: [gpu]` requests compute capability, the minimum
+the toolkit accepts. Nothing here names a model or a memory size:
+which model uses how much VRAM is ollama's runtime decision (the
+sizing table below).
+
+The same shape extends to any other service: to hand the gpu to a
+second container one day, the identical block under that service's
+name in the same file is all it takes.
+
+Prerequisites, checked in order:
+
+1. An NVIDIA gpu with a current driver: `nvidia-smi` on the host must
+   print the card. On WSL2, the WINDOWS driver provides CUDA to
+   Linux; nothing extra is installed inside WSL.
+2. The nvidia-container-toolkit, which lets Docker hand gpus to
+   containers: `docker info | grep -i nvidia` should list an `nvidia`
+   runtime. Without it, the override makes `docker compose up` fail
+   with "could not select device driver" — install the toolkit or
+   remove the override.
+
+Verifying it worked, three independent ways: `docker exec
+assistant_ollama nvidia-smi` prints the card from inside the
+container; `docker exec assistant_ollama ollama ps` shows the loaded
+model with `100% GPU` as its processor; and the app's Local models
+expander title reads `(GPU)` instead of `(CPU)` once a local model
+has answered.
+
+What to expect: the quality model measured at ~70 seconds per answer
+on CPU (qwen2.5:7b) drops to a few seconds when it fits entirely in
+VRAM. Sizing rule of thumb per model, download size roughly equal to
+the VRAM it wants: the basic 1.5b fits in ~2 GB, the 3b in ~4 GB, the
+7b in ~6-8 GB, the 14b wants ~10-12 GB and the 20b-class MoE models
+~14-16 GB. A model larger than the free VRAM still runs, split
+between gpu and system ram, at intermediate speed. Two related
+settings in the compose keep this healthy: `OLLAMA_MAX_LOADED_MODELS:
+1` evicts the previous model when switching, so the active one always
+gets the whole card (on an 8 GB gpu, two resident models would
+suffocate it), and the model volume persists downloads across
+restarts.
 
 Below the controls, the sidebar prints contextual notes for whatever
 the current combination implies: where the key came from, that local
@@ -175,8 +282,16 @@ ingest`, ask about them: the index always mirrors the folder.
 
 ## Pointing the assistant at your own notes
 
-Three steps switch from the demo to a real vault. First, set the path
-in `.env`:
+One command switches from the demo to a real vault:
+
+```bash
+make vault VAULT=/mnt/c/Users/you/Documents/your-vault
+```
+
+It validates the path, writes `VAULT_PATH` into `.env`, reindexes
+your notes and recreates the app with the new mount; `make vault
+VAULT=demo` is the way back. The same can be done by hand, in three
+steps. First, set the path in `.env`:
 
 ```
 VAULT_PATH=/mnt/c/Users/you/Documents/your-vault

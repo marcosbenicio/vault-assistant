@@ -96,6 +96,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pswd}
       APP_POSTGRES_DB: "obsidian_assistant"
       VAULT_PATH: "/vault"
+      # the host-side vault choice, passed through so the app can tell
+      # the person whether the demo or their own notes are answering
+      HOST_VAULT_PATH: ${VAULT_PATH:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
       LLM_MODEL: ${LLM_MODEL:-gpt-5.6-luna}
       LLM_API_KEY: ${LLM_API_KEY:-ollama}

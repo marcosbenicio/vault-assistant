@@ -54,6 +54,25 @@ reset-db:
 ingest:
 	docker compose run --rm ingest
 
+# point the stack at your own vault in one command: writes VAULT_PATH
+# into .env, reindexes your notes and recreates the app with the new
+# mount. Usage:
+#   make vault VAULT=/abs/path/to/your/notes    (on WSL, C:\ is /mnt/c/)
+#   make vault VAULT=demo                       (back to the demo vault)
+vault:
+	@test -n "$(VAULT)" || { echo "usage: make vault VAULT=/abs/path/to/your/notes (or VAULT=demo)"; exit 1; }
+	@if [ "$(VAULT)" = "demo" ]; then \
+		sed -i '/^VAULT_PATH=/d' .env; \
+		echo "vault: back to the demo"; \
+	else \
+		test -d "$(VAULT)" || { echo "not a directory: $(VAULT)"; exit 1; }; \
+		sed -i '/^VAULT_PATH=/d' .env; \
+		printf 'VAULT_PATH=%s\n' "$(VAULT)" >> .env; \
+		echo "vault: $(VAULT)"; \
+	fi
+	docker compose run --rm ingest
+	docker compose up -d --force-recreate app
+
 # peek at the last 10 logged conversations in postgres (the container's
 # own POSTGRES_USER is used, so .env overrides keep working)
 check-db:

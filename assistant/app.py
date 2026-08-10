@@ -16,8 +16,10 @@ import streamlit as st
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 
+from cleaner import NoteCleaner
 from db import ConversationLog
 from embeddings import SentenceTransformerEmbeddings
+from ingest import VaultLoader, SlidingWindowSplitter, ElasticsearchIndexer
 from judge import LLMJudge
 from metrics import CallMetrics, PRICES
 from rag import ObsidianRAG
@@ -137,6 +139,20 @@ def gpu_active(base_url):
         return any(m.get("size_vram", 0) > 0 for m in models)
     except Exception:
         return None
+
+
+@st.cache_data(ttl=60)
+def index_stats(_searcher):
+    """Notes and chunks currently in the index, for the caption under
+    the reingest button. Raises on an empty index (mid-reingest read)
+    so a transient zero is never cached."""
+    resp = _searcher.es_client.search(
+        index=_searcher.index, size=0, request_timeout=3,
+        aggs={"notes": {"cardinality": {"field": "path"}}})
+    chunks = _searcher.es_client.count(index=_searcher.index)["count"]
+    if not chunks:
+        raise RuntimeError("index is empty")
+    return resp["aggregations"]["notes"]["value"], chunks
 
 
 @st.cache_data(ttl=300)
@@ -273,9 +289,13 @@ else:
 
 use_rewriter = st.sidebar.toggle(
     "Query rewriter (fused search)", value=True,
-    help="An LLM translates the question into the vault's vocabulary and "
-         "both versions are searched. Best measured retrieval: hit rate "
-         "0.755 -> 0.885 on the ground truth.")
+    help="Puts a translation step in front of retrieval: an LLM rewrites "
+         "your question using the vocabulary of the vault, then search "
+         "runs on both the original and rewritten versions and fuses the "
+         "results. This helps when your wording differs from the "
+         "terminology used in the notes.\n\n"
+         "Turning it off disables query rewriting and removes the fused "
+         "mode from the available search options.")
 use_judge = st.sidebar.toggle(
     "LLM judge", value=True,
     help="A second LLM call scores every answer's relevance; the verdict "
@@ -285,9 +305,23 @@ search_modes = ((["fused"] if use_rewriter else [])
                 + ["hybrid", "rerank", "text", "vector"])
 search_mode = st.sidebar.selectbox(
     "Search mode", search_modes, index=0,
-    help="fused = rewriting + hybrid, the default. rerank = hybrid + "
-         "cross-encoder, the quality mode (~4s/question). The rest are "
-         "the plain modes, kept comparable on purpose.")
+    help="How your notes are searched before the model answers:\n"
+         "- **fused** *(default)*: an LLM first rewrites the question "
+         "using the vocabulary of the vault. Hybrid search then runs on "
+         "both the original and rewritten queries, and the two rankings "
+         "are fused. This is the best-performing retrieval mode in the "
+         "evaluation.\n"
+         "- **hybrid**: combines keyword search (BM25) with semantic "
+         "search (embeddings), then merges the two result sets. Fast and "
+         "requires no additional LLM call.\n"
+         "- **rerank**: hybrid search first retrieves 30 candidates, then "
+         "a cross-encoder scores each query-chunk pair and keeps the best "
+         "10. It gives the most precise ranking, at a cost of roughly 4 "
+         "additional seconds per query on CPU.\n"
+         "- **text**: keyword-only search using BM25. Best when the query "
+         "shares exact terms with the notes.\n"
+         "- **vector**: embedding-only semantic search. Matches by "
+         "meaning rather than exact wording.")
 
 try:
     folders = list_folders(searcher)
@@ -297,6 +331,68 @@ folder_choice = st.sidebar.selectbox(
     "Folder", ["whole vault"] + folders,
     help="Restrict the search to one subtree of the vault.")
 folder = None if folder_choice == "whole vault" else folder_choice
+
+# the index always mirrors the whole vault folder; the Folder selector
+# above only scopes the SEARCH, never what gets indexed
+if st.sidebar.button(
+        "Reingest vault",
+        help="Rebuild the search index from the files in the vault. "
+             "Run it after adding, editing or deleting notes."):
+    try:
+        with st.spinner("Reindexing the vault..."):
+            docs = VaultLoader(os.getenv("VAULT_PATH", "/vault"),
+                               NoteCleaner()).load()
+            chunks = SlidingWindowSplitter(
+                chunk_size=2000, chunk_overlap=1000).split_documents(docs)
+            indexer = ElasticsearchIndexer(
+                searcher.es_client, searcher.embeddings, index=searcher.index)
+            indexer.create_index(recreate=True)
+            indexer.index_documents(chunks)
+            searcher.es_client.indices.refresh(index=searcher.index)
+    except Exception as exc:
+        st.sidebar.error(f"Reingest failed: {exc}. The index may be "
+                         "partial; click again to rebuild.")
+    else:
+        list_folders.clear()
+        index_stats.clear()
+        st.sidebar.success(f"{len(docs)} notes -> {len(chunks)} chunks")
+
+try:
+    st.sidebar.caption("index: {} notes · {} chunks".format(*index_stats(searcher)))
+except Exception:
+    pass
+
+# the host-side vault choice, surfaced so nobody wonders whose notes
+# are answering: the demo gets onboarding (dismissable per session,
+# back on reload), a real vault gets named
+host_vault = os.getenv("HOST_VAULT_PATH", "")
+if host_vault:
+    st.sidebar.caption(f"vault: {host_vault}")
+elif not st.session_state.get("vault_notice_ok"):
+    st.sidebar.info(
+        "**Demo vault active.** `VAULT_PATH` is not set, so every "
+        "answer comes from the project's example notes.\n\n"
+        "To answer from your own notes, run this from the project "
+        "root:\n\n"
+        "`make vault VAULT=/abs/path/to/your/notes`\n\n"
+        "Any folder of markdown files works, including an "
+        "[Obsidian](https://obsidian.md/download) vault. The "
+        "path must be absolute:\n"
+        "- **Linux**: `/home/you/Notes`\n"
+        "- **macOS**: `/Users/you/Notes`\n"
+        "- **Windows (WSL2)**: `C:\\Users\\you\\Notes` becomes "
+        "`/mnt/c/Users/you/Notes`\n"
+        "- **Windows without WSL**: the make targets need a POSIX "
+        "shell; without one, set `VAULT_PATH` in `.env` by hand and "
+        "run `docker compose run --rm ingest` followed by "
+        "`docker compose up -d --force-recreate app`\n\n"
+        "The command stores the path in `.env`, indexes your notes "
+        "and reconnects the app; from then on, answers come from your "
+        "vault. Back to the demo: `make vault VAULT=demo`.",
+        icon="ℹ️")
+    if st.sidebar.button("OK", key="vault-notice-ok"):
+        st.session_state["vault_notice_ok"] = True
+        st.rerun()
 
 render_local_models(local_models)
 
