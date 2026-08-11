@@ -1,0 +1,19 @@
+# The conversation diary as a grafana datasource. Credentials arrive
+# through the container's environment (set in docker-compose.yml), so
+# .env overrides keep working here too.
+apiVersion: 1
+datasources:
+  - name: Vault Assistant Postgres
+    uid: vault-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: $POSTGRES_USER
+    isDefault: true
+    editable: true
+    jsonData:
+      database: obsidian_assistant
+      sslmode: disable
+      postgresVersion: 1500
+    secureJsonData:
+      password: $POSTGRES_PASSWORD

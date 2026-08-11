@@ -1,0 +1,714 @@
+{
+  "uid": "vault-assistant",
+  "title": "Vault Assistant",
+  "tags": [
+    "vault-assistant"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Questions",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT count(*) FROM conversations WHERE $__timeFilter(created_at);",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Spend this month (USD)",
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT coalesce(sum(cost),0) FROM conversations WHERE created_at >= date_trunc('month', now());",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 7
+              },
+              {
+                "color": "#d03b3b",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "description": "Calendar month, ignores the dashboard time range. The 10 dollar line is the project's declared budget."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Monthly projection (USD)",
+      "gridPos": {
+        "x": 9,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT coalesce(sum(cost),0) / greatest(extract(day from now()),1) * extract(day from (date_trunc('month', now()) + interval '1 month' - interval '1 day')) FROM conversations WHERE created_at >= date_trunc('month', now());",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 7
+              },
+              {
+                "color": "#d03b3b",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "description": "This month's pace extended to the full month."
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Avg answer time",
+      "gridPos": {
+        "x": 14,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT coalesce(avg(response_time),0) FROM conversations WHERE $__timeFilter(created_at);",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Judged RELEVANT",
+      "gridPos": {
+        "x": 19,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT coalesce(avg(CASE WHEN j.relevance='RELEVANT' THEN 100.0 ELSE 0 END),0) FROM judgements j JOIN conversations c ON c.id=j.conversation_id WHERE $__timeFilter(c.created_at);",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#d03b3b",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 60
+              },
+              {
+                "color": "#0ca30c",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Questions over time",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(created_at, $__interval), count(*) AS questions FROM conversations WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1;",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Where the seconds go, by search mode",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT search_mode, round(avg(retrieval_time)::numeric, 2) AS \"retrieval\", round(avg(response_time - coalesce(retrieval_time,0))::numeric, 2) AS \"generation\" FROM conversations WHERE $__timeFilter(created_at) AND retrieval_time IS NOT NULL GROUP BY search_mode ORDER BY search_mode;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "retrieval"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "generation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "search_mode",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "description": "fused pays the rewrite inside retrieval; rerank pays the cross-encoder; generation depends on the model."
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Cost per answer, by model",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT model, round(avg(cost)::numeric, 4) AS \"usd per answer\" FROM conversations WHERE $__timeFilter(created_at) GROUP BY model ORDER BY 2 DESC;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "model",
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Spend per day",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(created_at, '1d'), sum(cost) AS spend FROM conversations WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1;",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 3,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Judge verdicts over time",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(c.created_at, $__interval), j.relevance AS metric, count(*) FROM judgements j JOIN conversations c ON c.id=j.conversation_id WHERE $__timeFilter(c.created_at) GROUP BY 1, 2 ORDER BY 1;",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RELEVANT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PARTLY_RELEVANT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#fab219"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NON_RELEVANT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d03b3b"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Judge vs humans",
+      "gridPos": {
+        "x": 8,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT j.relevance AS \"judge verdict\", count(*) FILTER (WHERE f.thumbs = 1) AS \"helpful\", count(*) FILTER (WHERE f.thumbs = -1) AS \"not helpful\", count(*) FILTER (WHERE f.thumbs IS NULL) AS \"no vote\" FROM judgements j JOIN conversations c ON c.id=j.conversation_id LEFT JOIN feedback f ON f.conversation_id = c.id WHERE $__timeFilter(c.created_at) GROUP BY 1 ORDER BY 1;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {},
+      "description": "The trade-offs note promises this panel: when the judge and the humans drift apart, it shows here."
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Recent NON_RELEVANT answers",
+      "gridPos": {
+        "x": 16,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT c.created_at AS time, left(c.question, 60) AS question, c.model FROM judgements j JOIN conversations c ON c.id=j.conversation_id WHERE j.relevance = 'NON_RELEVANT' AND $__timeFilter(c.created_at) ORDER BY c.created_at DESC LIMIT 10;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {},
+      "description": "Each row is a candidate for better docs or better retrieval: the improvement loop starts here."
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Most cited notes",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT src->>'path' AS note, count(*) AS citations FROM conversations c, jsonb_array_elements(c.sources) src WHERE $__timeFilter(c.created_at) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "note",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "description": "Which notes carry the vault: every chunk retrieved counts."
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "Recent conversations",
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "vault-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "vault-postgres"
+          },
+          "rawSql": "SELECT c.created_at AS time, left(c.question, 50) AS question, c.model, c.search_mode AS mode, round(c.cost::numeric, 4) AS usd, round(c.response_time::numeric, 1) AS s, j.relevance AS judge, f.thumbs FROM conversations c LEFT JOIN judgements j ON j.conversation_id = c.id LEFT JOIN feedback f ON f.conversation_id = c.id WHERE $__timeFilter(c.created_at) ORDER BY c.created_at DESC LIMIT 12;",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

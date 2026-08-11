@@ -1,0 +1,9 @@
+# Loads every dashboard json committed under grafana/dashboards, so a
+# fresh clone gets the monitoring pre-built on the first up.
+apiVersion: 1
+providers:
+  - name: vault-assistant
+    type: file
+    folder: ""
+    options:
+      path: /var/lib/grafana/dashboards
