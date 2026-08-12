@@ -61,7 +61,7 @@ services:
   # Datasource and dashboards are provisioned from the repo.
   # ----------------------------------------------------------------------------
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:13.1.0
     container_name: assistant_grafana
     restart: unless-stopped
     ports:
@@ -176,7 +176,7 @@ services:
   #   cp docker-compose.gpu.yml docker-compose.override.yml && docker compose up -d
   # ----------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.32.1
     container_name: assistant_ollama
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]

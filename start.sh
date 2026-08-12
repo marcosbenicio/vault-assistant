@@ -48,33 +48,58 @@ if ! docker compose version >/dev/null 2>&1; then
   die "Docker Compose v2 not found (the 'docker compose' command). Update Docker."
 fi
 
-# 4.5 vault choice: asked once, BEFORE the stack rises, because the
-#     mount happens on the way up. The answer lives in .env; delete
-#     the VAULT_PATH / #VAULT_CHOICE lines there to be asked again.
+# 4.5 vault choice: asked on EVERY run, with the current choice as the
+#     one-keypress default (Enter keeps it). The state lives only in
+#     .env's VAULT_PATH: present = that folder, absent = the demo.
+#     (Changed 2026-08-12: the old ask-once #VAULT_CHOICE marker is
+#     gone — asking every run makes the launcher also the place where
+#     the vault gets SWITCHED, not only chosen the first time.)
 choose_vault() {
+  current=$(grep -E '^VAULT_PATH=' .env 2>/dev/null | tail -1 | cut -d= -f2-)
+  current_label="${current:-demo}"
   folder=""
-  if command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-    # graphical path: a question dialog, then the native folder picker.
-    # Cancel or closing either window means the demo vault.
-    if zenity --question --title="Vault Assistant" \
-              --text="Which notes should the assistant answer from?" \
-              --ok-label="My own folder..." --cancel-label="Demo vault"; then
-      folder=$(zenity --file-selection --directory \
-                      --title="Choose your notes folder" || true)
-    fi
-  elif [ -t 0 ]; then
-    # no dialogs available, but there is a terminal: ask in text
-    say "Which notes should the assistant answer from?"
-    read -rp "Path to your notes folder (Enter = demo vault): " folder
-  else
-    # no dialog AND no terminal (rare): stay quietly on the demo and
-    # do not record a choice, so an interactive run can still ask
-    return 0
-  fi
 
-  if [ -z "$folder" ]; then
-    say "Using the demo vault. (Your own notes later: make vault VAULT=/abs/path)"
-    printf '#VAULT_CHOICE=demo\n' >> .env
+  if command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+    # buttons say what they do; Demo only offered when NOT already on it
+    if [ -n "$current" ]; then
+      out=$(zenity --question --title="Vault Assistant" \
+                   --text="Which vault should the assistant answer from?\n\nCurrent vault: ${current_label}" \
+                   --ok-label="Keep" --cancel-label="Choose..." \
+                   --extra-button="Demo" 2>/dev/null); rc=$?
+      if [ "$rc" -eq 0 ]; then return 0; fi
+      if [ "$out" = "Demo" ]; then
+        sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
+        say "Vault: demo"
+        return 0
+      fi
+    else
+      zenity --question --title="Vault Assistant" \
+             --text="Which vault should the assistant answer from?\n\nCurrent vault: demo" \
+             --ok-label="Keep" --cancel-label="Choose..." && return 0
+    fi
+    folder=$(zenity --file-selection --directory \
+                    --title="Choose your vault folder" || true)
+    [ -z "$folder" ] && return 0    # picker cancelled = keep, the safe path
+  elif [ -t 0 ]; then
+    say "Which vault should the assistant answer from?"
+    say "Current vault: ${current_label}"
+    # the zenity tip, exactly where the person would miss the dialogs
+    if command -v apt >/dev/null 2>&1 && ! command -v zenity >/dev/null 2>&1; then
+      say "Tip: want graphical dialogs here? Install once with:  sudo apt install zenity"
+    fi
+    if [ -n "$current" ]; then
+      read -rp "Enter keeps - or type a folder path (or 'demo') to switch: " folder
+    else
+      read -rp "Enter keeps - or type a folder path to switch: " folder
+    fi
+    [ -z "$folder" ] && return 0
+    if [ "$folder" = "demo" ]; then
+      sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
+      say "Vault: demo"
+      return 0
+    fi
+  else
+    # no dialog and no terminal: keep the current state untouched
     return 0
   fi
 
@@ -91,18 +116,16 @@ choose_vault() {
   esac
 
   if [ ! -d "$folder" ]; then
-    say "Not a folder: $folder"
-    say "Staying on the demo vault. (Try again later: make vault VAULT=/abs/path)"
-    printf '#VAULT_CHOICE=demo\n' >> .env
+    say "Not a folder: $folder - keeping the current vault (${current_label})."
     return 0
   fi
 
-  sed -i '/^VAULT_PATH=/d' .env 2>/dev/null || true
+  sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
   printf 'VAULT_PATH=%s\n' "$folder" >> .env
-  say "Vault set: $folder  (back to the demo: make vault VAULT=demo)"
+  say "Vault set: $folder  (switch again on any run, or: make vault VAULT=demo)"
 }
 
-grep -Eq '^VAULT_PATH=|^#VAULT_CHOICE=demo' .env 2>/dev/null || choose_vault
+choose_vault
 
 # 5. start the stack, with the classic failures explained
 say "Starting the stack — the first run downloads images and a basic local model (~4 GB)..."

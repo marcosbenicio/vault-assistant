@@ -226,7 +226,7 @@ run:
  The output below shows the full round trip: make run starts the stack, downloads and indexes the FAQ, retrieves the top documents for the question and generates the answer.
 
 ```bash
-    (base) marcos@HAI-LP-004:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make run
+    user@host:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make run
     docker compose -f ../../../../docker-compose.yml up -d notebook
     [+] up 3/3
     ✔ Container pgvector      Running                                                                                                                                                      0.0s
@@ -300,7 +300,7 @@ chat:
 Expected output
 
 ```bash
-(base) marcos@HAI-LP-004:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make chat
+user@host:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make chat
 docker compose -f ../../../../docker-compose.yml up -d notebook
 [+] up 3/3
  ✔ Container pgvector      Running                                                                                                                                                      0.0s
@@ -717,7 +717,7 @@ make chat         # serves the app at localhost:8501
 With the app up, every question answered through the interface is persisted by save_conversation. After two questions in the chat, check-db already tells the story:
 
 ```bash
-(base) marcos@HAI-LP-004:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make check-db
+user@host:~/studies/llm-zoomcamp-2026/05-monitoring/code/rag-app$ make check-db
 docker compose -f ../../../../docker-compose.yml exec pgvector psql -U user -d course_assistant \
         -c "SELECT id, question, cost, timestamp FROM conversations;"
  id |          question          |          cost          |           timestamp

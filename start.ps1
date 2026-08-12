@@ -7,6 +7,17 @@ Set-Location $PSScriptRoot
 function Say($msg) { Write-Host "`n$msg" }
 function Die($msg) { Say $msg; exit 1 }
 
+# WHY THIS GATE EXISTS (added 2026-08-12): docker compose must run on
+# the side that owns the repo files. A path starting with \\ means the
+# repo lives inside WSL; compose launched from Windows then mounts an
+# empty /app ("File does not exist: app.py" crash loop). So we hand
+# the whole job to the WSL side and exit.
+if ($PSScriptRoot.StartsWith("\\")) {
+  Say "This repo lives inside WSL - delegating to the WSL side..."
+  wsl.exe --cd "$PSScriptRoot" -e bash ./start.sh
+  exit $LASTEXITCODE
+}
+
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Say "Docker not found. Install Docker Desktop:"
   Say "  https://www.docker.com/products/docker-desktop/"
@@ -23,71 +34,123 @@ if ($LASTEXITCODE -ne 0) {
   Die "Docker Compose v2 not found. Update Docker Desktop."
 }
 
-# vault choice: asked once, BEFORE the stack rises, because the mount
-# happens on the way up. The answer lives in .env; delete the
-# VAULT_PATH / #VAULT_CHOICE lines there to be asked again.
+# vault choice: asked on EVERY run through a small native window with
+# buttons that SAY what they do (Keep / Choose... / Demo). The Demo
+# button only exists when a custom vault is active — without one, the
+# current vault already IS the demo. Closing the window keeps the
+# current vault: the safe path. State lives only in .env's VAULT_PATH.
 function Choose-Vault {
-  $folder = ""
+  $envFile = Join-Path $PSScriptRoot ".env"
+  $current = ""
+  if (Test-Path $envFile) {
+    $m = Select-String -Path $envFile -Pattern '^VAULT_PATH=(.+)$' | Select-Object -Last 1
+    if ($m) { $current = $m.Matches[0].Groups[1].Value }
+  }
+  $onDemo = [string]::IsNullOrWhiteSpace($current)
+  $label = if ($onDemo) { "demo" } else { $current }
+
+  $action = "keep"
+  $typedFolder = ""
   try {
     Add-Type -AssemblyName System.Windows.Forms
-    $r = [System.Windows.Forms.MessageBox]::Show(
-          "Answer from your own notes folder?`n`nYes: choose a folder.   No: use the demo vault.",
-          "Vault Assistant",
-          [System.Windows.Forms.MessageBoxButtons]::YesNo,
-          [System.Windows.Forms.MessageBoxIcon]::Question)
-    if ($r -eq "Yes") {
-      $picker = New-Object System.Windows.Forms.FolderBrowserDialog
-      $picker.Description = "Choose your notes folder"
-      if ($picker.ShowDialog() -eq "OK") { $folder = $picker.SelectedPath }
+    Add-Type -AssemblyName System.Drawing
+
+    $form = New-Object Windows.Forms.Form
+    $form.Text = "Vault Assistant"
+    $form.FormBorderStyle = "FixedDialog"
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.StartPosition = "CenterScreen"
+    $form.ClientSize = New-Object Drawing.Size(440, 152)
+
+    $q = New-Object Windows.Forms.Label
+    $q.Text = "Which vault should the assistant answer from?"
+    $q.Font = New-Object Drawing.Font("Segoe UI", 11, [Drawing.FontStyle]::Bold)
+    $q.SetBounds(20, 16, 400, 26)
+
+    $c = New-Object Windows.Forms.Label
+    $c.Text = "Current vault:  $label"
+    $c.Font = New-Object Drawing.Font("Segoe UI", 9.5)
+    $c.SetBounds(20, 50, 400, 42)
+
+    $bKeep = New-Object Windows.Forms.Button
+    $bKeep.Text = "Keep"
+    $bKeep.SetBounds(20, 106, 100, 32)
+    $bKeep.add_Click({ $form.Tag = "keep"; $form.Close() })
+
+    $bChoose = New-Object Windows.Forms.Button
+    $bChoose.Text = "Choose..."
+    $bChoose.SetBounds(130, 106, 110, 32)
+    $bChoose.add_Click({ $form.Tag = "choose"; $form.Close() })
+
+    $form.Controls.AddRange(@($q, $c, $bKeep, $bChoose))
+
+    if (-not $onDemo) {
+      $bDemo = New-Object Windows.Forms.Button
+      $bDemo.Text = "Demo"
+      $bDemo.SetBounds(250, 106, 100, 32)
+      $bDemo.add_Click({ $form.Tag = "demo"; $form.Close() })
+      $form.Controls.Add($bDemo)
     }
+
+    $form.AcceptButton = $bKeep
+    $form.Tag = "keep"          # the X also keeps: the safe path
+    [void]$form.ShowDialog()
+    $action = [string]$form.Tag
+    $form.Dispose()
   } catch {
-    # gui unavailable (unusual shells): fall back to a typed path
-    $folder = Read-Host "Path to your notes folder (Enter = demo vault)"
+    # no gui available (unusual shells): the same adaptive question in text
+    $hint = if ($onDemo) { "Enter keeps, or type a folder path" }
+            else { "Enter keeps, type a folder path, or 'demo'" }
+    $typed = Read-Host "Current vault: $label - $hint"
+    if ([string]::IsNullOrWhiteSpace($typed)) { $action = "keep" }
+    elseif ($typed -eq "demo") { $action = "demo" }
+    else { $action = "choose"; $typedFolder = $typed }
   }
 
-  $envFile = Join-Path $PSScriptRoot ".env"
-  $lines = @()
-  if (Test-Path $envFile) {
-    $lines = @(Get-Content $envFile | Where-Object { $_ -notmatch '^VAULT_PATH=' })
-  }
+  if ($action -eq "keep") { return }
 
-  if ([string]::IsNullOrWhiteSpace($folder)) {
-    Say "Using the demo vault. (Your own notes later: rerun after deleting #VAULT_CHOICE from .env)"
-    $lines += "#VAULT_CHOICE=demo"
-  } elseif (-not (Test-Path -LiteralPath $folder -PathType Container)) {
-    Say "Not a folder: $folder - staying on the demo vault."
-    $lines += "#VAULT_CHOICE=demo"
-  } else {
-    # a folder that came back as a \\wsl UNC path must be translated
-    # to its linux form before it can be mounted; refuse rather than
-    # write a path the mount cannot serve
+  $folder = ""
+  if ($action -eq "choose") {
+    if ($typedFolder) { $folder = $typedFolder }
+    else {
+      $picker = New-Object Windows.Forms.FolderBrowserDialog
+      $picker.Description = "Choose your vault folder"
+      if ($picker.ShowDialog() -ne "OK") { return }   # cancel = keep
+      $folder = $picker.SelectedPath
+    }
+    if (-not (Test-Path -LiteralPath $folder -PathType Container)) {
+      Say "Not a folder: $folder - keeping the current vault."
+      return
+    }
+    # a folder on a \\wsl UNC path must be translated to its linux
+    # form before it can be mounted; refuse rather than write a path
+    # the mount cannot serve
     if ($folder.StartsWith("\\")) {
       $converted = ""
       try { $converted = (wsl wslpath -a "$folder" 2>$null).Trim() } catch {}
-      if ($converted -and $converted.StartsWith("/")) {
-        $folder = $converted
-      } else {
-        Say "Could not translate the WSL path: $folder"
-        Say "Staying on the demo vault; from a WSL terminal, use: make vault VAULT=/abs/path"
-        $lines += "#VAULT_CHOICE=demo"
-        $folder = ""
+      if ($converted -and $converted.StartsWith("/")) { $folder = $converted }
+      else {
+        Say "Could not translate the WSL path: $folder - keeping the current vault."
+        return
       }
     }
-    if ($folder) {
-      $lines += "VAULT_PATH=$folder"
-      Say "Vault set: $folder"
-    }
   }
+
+  $lines = @()
+  if (Test-Path $envFile) {
+    $lines = @(Get-Content $envFile |
+               Where-Object { $_ -notmatch '^VAULT_PATH=' -and $_ -notmatch '^#VAULT_CHOICE=' })
+  }
+  if ($folder) { $lines += "VAULT_PATH=$folder"; Say "Vault set: $folder" }
+  else { Say "Vault: demo" }
 
   # utf-8 WITHOUT bom: docker compose chokes on a bom before the first key
   $utf8 = New-Object System.Text.UTF8Encoding($false)
   [System.IO.File]::WriteAllLines($envFile, [string[]]$lines, $utf8)
 }
 
-$envPath = Join-Path $PSScriptRoot ".env"
-$asked = (Test-Path $envPath) -and
-         (Select-String -Path $envPath -Pattern '^VAULT_PATH=|^#VAULT_CHOICE=demo' -Quiet)
-if (-not $asked) { Choose-Vault }
+Choose-Vault
 
 Say "Starting the stack - the first run downloads images and a basic local model (~4 GB)..."
 docker compose up -d
