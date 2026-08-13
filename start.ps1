@@ -61,7 +61,7 @@ function Choose-Vault {
     $form.MaximizeBox = $false
     $form.MinimizeBox = $false
     $form.StartPosition = "CenterScreen"
-    $form.ClientSize = New-Object Drawing.Size(440, 152)
+    $form.ClientSize = New-Object Drawing.Size(440, 184)
 
     $q = New-Object Windows.Forms.Label
     $q.Text = "Which vault should the assistant answer from?"
@@ -70,17 +70,17 @@ function Choose-Vault {
 
     $c = New-Object Windows.Forms.Label
     $c.Text = "Current vault:  $label"
-    $c.Font = New-Object Drawing.Font("Segoe UI", 9.5)
-    $c.SetBounds(20, 50, 400, 42)
+    $c.Font = New-Object Drawing.Font("Segoe UI", 8.75)
+    $c.SetBounds(20, 50, 400, 68)
 
     $bKeep = New-Object Windows.Forms.Button
     $bKeep.Text = "Keep"
-    $bKeep.SetBounds(20, 106, 100, 32)
+    $bKeep.SetBounds(20, 138, 100, 32)
     $bKeep.add_Click({ $form.Tag = "keep"; $form.Close() })
 
     $bChoose = New-Object Windows.Forms.Button
     $bChoose.Text = "Choose..."
-    $bChoose.SetBounds(130, 106, 110, 32)
+    $bChoose.SetBounds(130, 138, 110, 32)
     $bChoose.add_Click({ $form.Tag = "choose"; $form.Close() })
 
     $form.Controls.AddRange(@($q, $c, $bKeep, $bChoose))
@@ -88,7 +88,7 @@ function Choose-Vault {
     if (-not $onDemo) {
       $bDemo = New-Object Windows.Forms.Button
       $bDemo.Text = "Demo"
-      $bDemo.SetBounds(250, 106, 100, 32)
+      $bDemo.SetBounds(250, 138, 100, 32)
       $bDemo.add_Click({ $form.Tag = "demo"; $form.Close() })
       $form.Controls.Add($bDemo)
     }
@@ -112,29 +112,37 @@ function Choose-Vault {
 
   $folder = ""
   if ($action -eq "choose") {
-    if ($typedFolder) { $folder = $typedFolder }
-    else {
-      $picker = New-Object Windows.Forms.FolderBrowserDialog
-      $picker.Description = "Choose your vault folder"
-      if ($picker.ShowDialog() -ne "OK") { return }   # cancel = keep
-      $folder = $picker.SelectedPath
-    }
-    if (-not (Test-Path -LiteralPath $folder -PathType Container)) {
-      Say "Not a folder: $folder - keeping the current vault."
-      return
-    }
-    # a folder on a \\wsl UNC path must be translated to its linux
-    # form before it can be mounted; refuse rather than write a path
-    # the mount cannot serve
-    if ($folder.StartsWith("\\")) {
-      $converted = ""
-      try { $converted = (wsl wslpath -a "$folder" 2>$null).Trim() } catch {}
-      if ($converted -and $converted.StartsWith("/")) { $folder = $converted }
+    # VALIDATION LOOP 2026-08-13: never write a vault without notes.
+    # The picker repeats until a folder WITH .md files is chosen, the
+    # person switches to the demo, or cancels (= keep current).
+    while ($true) {
+      if ($typedFolder) { $folder = $typedFolder; $typedFolder = "" }
       else {
-        Say "Could not translate the WSL path: $folder - keeping the current vault."
-        return
+        $picker = New-Object Windows.Forms.FolderBrowserDialog
+        $picker.Description = "Choose your vault folder"
+        if ($picker.ShowDialog() -ne "OK") { return }   # cancel = keep
+        $folder = $picker.SelectedPath
       }
+      $ok = (Test-Path -LiteralPath $folder -PathType Container) -and
+            (Get-ChildItem -LiteralPath $folder -Recurse -Filter *.md -File `
+             -ErrorAction SilentlyContinue | Select-Object -First 1)
+      if ($ok) { break }
+      try {
+        $r = [System.Windows.Forms.MessageBox]::Show(
+              "That folder has no markdown notes.`n`nChoose another folder?  (No = use the demo vault)",
+              "Vault Assistant",
+              [System.Windows.Forms.MessageBoxButtons]::YesNo,
+              [System.Windows.Forms.MessageBoxIcon]::Warning)
+      } catch { $folder = ""; break }
+      if ($r -ne "Yes") { $folder = ""; break }        # demo
     }
+    # NO TRANSLATION 2026-08-13: this branch only runs on a C:\-hosted
+    # repo (the gate delegates WSL-hosted repos), so compose runs on the
+    # WINDOWS side - and Docker Desktop mounts \\wsl.localhost\... UNC
+    # paths natively (verified with a live docker run). The old code
+    # "translated" the path through the linux shell, which ate the
+    # backslashes and wrote garbage; the correct move is to not touch
+    # the path at all.
   }
 
   $lines = @()
@@ -159,6 +167,21 @@ if ($LASTEXITCODE -ne 0) {
   Say "  - 'port is already allocated': change APP_PORT / ES_PORT / ... in .env and rerun"
   Say "  - no disk space: the first run needs about 4 GB free"
   Die "Details above; full logs: docker compose logs"
+}
+
+# C1 2026-08-13: hold until the one-shot ingest finishes building the
+# index, so the browser never opens on a half-ready app.
+Say "Indexing the vault (a first build takes about a minute)..."
+# docker compose wait errors out when the one-shot ALREADY exited, so
+# the container is inspected directly by its fixed name instead
+while ((docker inspect -f '{{.State.Running}}' assistant_ingest 2>$null) -eq "true") {
+  Start-Sleep -Seconds 2
+}
+$ingestRc = docker inspect -f '{{.State.ExitCode}}' assistant_ingest 2>$null
+if ($ingestRc -ne "0") {
+  Say "The vault indexing FAILED - the reason:"
+  docker logs assistant_ingest 2>&1 | Select-Object -Last 3
+  Say "The app will open anyway; pick another folder with this launcher, or use the Reingest button."
 }
 
 $port = 8501

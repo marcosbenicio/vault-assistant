@@ -204,6 +204,15 @@ if __name__ == "__main__":
                                    index=os.getenv("ES_INDEX", "obsidian_notes"))
 
     documents = loader.load()
+    # GUARD 2026-08-13: an empty or wrong mount must NEVER wipe the
+    # existing index. This one-shot deleted a healthy index twice by
+    # happily recreating it over zero documents; now it refuses first.
+    if not documents:
+        print("ERROR: no markdown notes in the mounted vault - "
+              "index left untouched.")
+        print("Run the launcher again to pick a different folder "
+              "(or the demo).")
+        raise SystemExit(1)
     chunks = splitter.split_documents(documents)
     print(f"{len(documents)} notes -> {len(chunks)} chunks")
 

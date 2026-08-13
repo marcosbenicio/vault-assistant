@@ -59,6 +59,15 @@ choose_vault() {
   current_label="${current:-demo}"
   folder=""
 
+  # VALIDATION 2026-08-13: a vault without notes must never be written —
+  # an empty mount used to wipe the index and answer from nothing
+  has_notes() { find "$1" -name '*.md' -print -quit 2>/dev/null | grep -q .; }
+
+  set_demo() {
+    sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
+    say "Vault: demo"
+  }
+
   if command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
     # buttons say what they do; Demo only offered when NOT already on it
     if [ -n "$current" ]; then
@@ -67,19 +76,23 @@ choose_vault() {
                    --ok-label="Keep" --cancel-label="Choose..." \
                    --extra-button="Demo" 2>/dev/null); rc=$?
       if [ "$rc" -eq 0 ]; then return 0; fi
-      if [ "$out" = "Demo" ]; then
-        sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
-        say "Vault: demo"
-        return 0
-      fi
+      if [ "$out" = "Demo" ]; then set_demo; return 0; fi
     else
       zenity --question --title="Vault Assistant" \
              --text="Which vault should the assistant answer from?\n\nCurrent vault: demo" \
              --ok-label="Keep" --cancel-label="Choose..." && return 0
     fi
-    folder=$(zenity --file-selection --directory \
-                    --title="Choose your vault folder" || true)
-    [ -z "$folder" ] && return 0    # picker cancelled = keep, the safe path
+    # picker loop: repeat until a folder WITH notes, demo, or cancel(=keep)
+    while true; do
+      folder=$(zenity --file-selection --directory \
+                      --title="Choose your vault folder" || true)
+      [ -z "$folder" ] && return 0
+      has_notes "$folder" && break
+      zenity --question --title="Vault Assistant" \
+             --text="That folder has no markdown notes.\n\nChoose another folder?" \
+             --ok-label="Choose again" --cancel-label="Use demo" \
+             || { set_demo; return 0; }
+    done
   elif [ -t 0 ]; then
     say "Which vault should the assistant answer from?"
     say "Current vault: ${current_label}"
@@ -87,36 +100,33 @@ choose_vault() {
     if command -v apt >/dev/null 2>&1 && ! command -v zenity >/dev/null 2>&1; then
       say "Tip: want graphical dialogs here? Install once with:  sudo apt install zenity"
     fi
-    if [ -n "$current" ]; then
-      read -rp "Enter keeps - or type a folder path (or 'demo') to switch: " folder
-    else
-      read -rp "Enter keeps - or type a folder path to switch: " folder
-    fi
-    [ -z "$folder" ] && return 0
-    if [ "$folder" = "demo" ]; then
-      sed -i '/^VAULT_PATH=/d;/^#VAULT_CHOICE=/d' .env 2>/dev/null || true
-      say "Vault: demo"
-      return 0
-    fi
+    # ask loop: repeat until valid folder, demo, or Enter(=keep)
+    while true; do
+      if [ -n "$current" ]; then
+        read -rp "Enter keeps - or type a folder path (or 'demo') to switch: " folder
+      else
+        read -rp "Enter keeps - or type a folder path to switch: " folder
+      fi
+      [ -z "$folder" ] && return 0
+      if [ "$folder" = "demo" ]; then set_demo; return 0; fi
+
+      # typed-path hygiene: literal ~, windows paths inside wsl, relative
+      folder="${folder/#\~/$HOME}"
+      case "$folder" in
+        [A-Za-z]:\\*|[A-Za-z]:/*)
+          command -v wslpath >/dev/null 2>&1 && folder=$(wslpath -a "$folder" 2>/dev/null || printf '%s' "$folder") ;;
+      esac
+      case "$folder" in
+        /*) ;;
+        *) folder=$(realpath "$folder" 2>/dev/null || printf '%s' "$folder") ;;
+      esac
+
+      [ -d "$folder" ] || { say "Not a folder: $folder"; continue; }
+      has_notes "$folder" || { say "No markdown notes in that folder."; continue; }
+      break
+    done
   else
     # no dialog and no terminal: keep the current state untouched
-    return 0
-  fi
-
-  # typed-path hygiene: a literal ~, a Windows path pasted inside WSL,
-  # or a relative path all get resolved before validation
-  folder="${folder/#\~/$HOME}"
-  case "$folder" in
-    [A-Za-z]:\\*|[A-Za-z]:/*)
-      command -v wslpath >/dev/null 2>&1 && folder=$(wslpath -a "$folder" 2>/dev/null || printf '%s' "$folder") ;;
-  esac
-  case "$folder" in
-    /*) ;;
-    *) folder=$(realpath "$folder" 2>/dev/null || printf '%s' "$folder") ;;
-  esac
-
-  if [ ! -d "$folder" ]; then
-    say "Not a folder: $folder - keeping the current vault (${current_label})."
     return 0
   fi
 
@@ -135,6 +145,24 @@ if ! docker compose up -d; then
   say "    change APP_PORT / ES_PORT / ... in .env and rerun"
   say "  - no disk space: the first run needs about 4 GB free"
   die "Details in the messages above; full logs: docker compose logs"
+fi
+
+# 5.5 wait for the INDEX, not just the app. C1 2026-08-13: the browser
+#     used to open while the one-shot ingest was still building the
+#     index - a half-ready app with empty folder lists and answers
+#     from nothing, and no explanation. Now the launcher holds until
+#     the indexing finishes (or fails loudly).
+say "Indexing the vault (a first build takes about a minute)..."
+# docker compose wait errors out when the one-shot ALREADY exited, so
+# the container is inspected directly by its fixed name instead
+while [ "$(docker inspect -f '{{.State.Running}}' assistant_ingest 2>/dev/null)" = "true" ]; do
+  sleep 2
+done
+ingest_rc=$(docker inspect -f '{{.State.ExitCode}}' assistant_ingest 2>/dev/null || echo "")
+if [ "$ingest_rc" != "0" ]; then
+  say "The vault indexing FAILED - the reason:"
+  docker logs assistant_ingest 2>&1 | tail -3
+  say "The app will open anyway; pick another folder with this launcher, or use the Reingest button."
 fi
 
 # 6. wait for the app, patiently: the first boot also downloads the
