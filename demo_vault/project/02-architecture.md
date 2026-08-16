@@ -6,12 +6,15 @@ tags: [project, infrastructure]
 
 The project runs entirely on Docker. One image holds the Python code
 and serves three roles: the web app, a Jupyter environment and a
-one-shot ingestion job. Around it, three services do the heavy
+one-shot ingestion job. Around it, the services that do the heavy
 lifting: Elasticsearch for search, Postgres for logging, Grafana for
-dashboards. A seventh, optional service runs a local LLM with Ollama.
+dashboards, and Ollama serving local LLMs — part of the default
+stack, so the assistant answers even when no API key exists.
 Everything personal (API key, vault path, model choice) lives in a
-`.env` file, never in code. The compose patterns come from
-[[13-docker-compose]].
+`.env` file, never in code — and nobody is required to edit it by
+hand: the launcher writes the vault path ([[11-starting-automated]])
+and an API key can be typed straight into the app's sidebar. The
+compose patterns come from [[13-docker-compose]].
 
 ## The services
 
@@ -24,10 +27,21 @@ answer, which matters because starting is not being ready: it takes
 around 30 seconds to boot.
 
 Postgres is the conversation and feedback log. The database is created
-on first boot by `POSTGRES_DB`, so setup is just up and one init
-command for the tables. Grafana reads it directly; the datasource and
-dashboards are provisioned from files in the repo, so a fresh clone
-gets the same panels without clicking anything.
+on first boot by `POSTGRES_DB`, and the app creates its own tables
+when it starts, idempotently — there is no init step to remember.
+Grafana reads it directly; the datasource and dashboards are
+provisioned from files in the repo, so a fresh clone gets the same
+panels without clicking anything.
+
+Ollama is the local model server, the reason the assistant works with
+no key at all. It is born useful: its entrypoint pulls a basic model
+(`qwen2.5:1.5b`) on the first start, so a fresh clone can answer
+before any account or download decision is made. Better models are
+one Download click away in the app's sidebar, and a named volume
+keeps them across recreations. Only one model stays resident at a
+time (`OLLAMA_MAX_LOADED_MODELS: 1`), so when a gpu exists the active
+model gets the whole card; acceleration itself is a two-line
+override, explained in [[09-running-it]].
 
 The app is Streamlit. The vault is mounted read only at `/vault`: the
 assistant reads notes, it never touches them. The package folder is
@@ -63,10 +77,17 @@ because the image underneath is the same.
 Config flows in three layers, each with its own speed of change. Code
 changes many times a day, so it is a bind mount. Dependencies change
 weekly, so they are an image layer, cached by copying
-`requirements.txt` before the code. Config changes rarely, so it is
-environment variables: the compose declares a default for every value
-(`${EMBED_MODEL:-all-MiniLM-L6-v2}`), and the `.env` file overrides
-what is personal. A fresh clone works with nothing but an API key.
+`requirements.txt` before the code — every one of them pinned to the
+exact version the results were measured on, and the heaviest one
+tamed: torch installs from its cpu-only wheel index, because
+embeddings run on cpu in this container and gpu inference belongs to
+the ollama service (the full reasoning in [[10-trade-offs]]). Config
+changes rarely, so it is environment variables: the compose declares
+a default for every value (`${EMBED_MODEL:-all-MiniLM-L6-v2}`), and
+the `.env` file overrides what is personal. A fresh clone works with
+nothing at all: no key (the basic local model answers), no `.env`
+(every value has a default), no manual step (the launcher, or a plain
+`docker compose up -d`, assembles the rest).
 
 One rule learned the hard way: containers read `.env` at creation
 time, so applying a change is a recreate (`make reload-app`), never a

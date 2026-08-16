@@ -80,4 +80,19 @@ Because ids are deterministic and the index is recreated on each run,
 the index always mirrors the vault folder exactly: add a note and it
 becomes searchable, delete one and it disappears.
 
+## The empty-vault guard
+
+Recreating the index on every run has a failure mode that was found
+the hard way: point the stack at a folder with no markdown in it, and
+the one-shot would happily build an index of nothing — the old index
+erased, the assistant answering from a void. The pipeline now
+refuses: when the loader finds no documents, or the splitter produces
+no chunks, the run stops with an explicit error BEFORE anything
+destructive happens, and the existing index is left untouched, with
+the message pointing at the recovery (pick another folder with the
+launcher, or the demo). The same check guards the Reingest button in
+the app, and the launchers refuse to even write a vault path whose
+folder has no notes ([[11-starting-automated]]) — three fences around
+the same cliff.
+
 Next: [[04-note-cleaning]], the first and smartest link of this chain.

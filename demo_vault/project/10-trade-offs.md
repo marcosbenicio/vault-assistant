@@ -138,6 +138,32 @@ unaffected by the judge's absolute bias — deltas survive a shifted
 zero. The human feedback buttons are the independent check: when the
 judge and the humans drift apart, the dashboards show it.
 
+## "Pinned versions age, floating versions break"
+
+Both halves are true; the project picks its side deliberately. Every
+docker image and every python dependency is pinned to the exact
+version the measurements ran on, taken from the running container
+itself, so a clone months from now builds the same bytes and
+reproduces the same tables — reproducibility here is not a promise
+but an attested state (the image was rebuilt from scratch and
+smoke-tested after pinning). The price is honest: upgrades stop being
+free, each one is a decision with a re-test attached. For a project
+whose claims are numbers, frozen and slightly aging beats current and
+unverifiable.
+
+The same reasoning trimmed the image itself. The default torch wheel
+ships the CUDA runtime, gigabytes of gpu code this container would
+never execute: embeddings run on cpu by design (seconds for a whole
+vault, measured), and gpu inference belongs to the ollama service.
+Installing the same pinned torch from its cpu-only wheel index keeps
+behavior byte-identical for everything the app does, while cutting
+the image by gigabytes and the first build by minutes — which is not
+cosmetic, it is the difference between a first launch that feels
+downloadable and one that feels stuck. The trade-off, stated: if
+embeddings should ever ride the gpu inside the app container, the
+Dockerfile choice must be revisited; today that gpu minute is better
+spent by the answer models.
+
 ## The pattern, closed end to end
 
 Read the five again and one shape repeats: a limit is found, named,

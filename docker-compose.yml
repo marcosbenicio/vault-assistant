@@ -39,7 +39,7 @@ services:
 
   # ----------------------------------------------------------------------------
   # postgres - conversation and feedback log. Born with the right database,
-  # so setup is just docker compose up + make init-db.
+  # and the app creates its tables on first boot: setup is just up.
   # ----------------------------------------------------------------------------
   postgres:
     image: postgres:18

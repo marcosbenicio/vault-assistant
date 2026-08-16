@@ -8,7 +8,19 @@ set -u
 cd "$(dirname "$0")"
 
 say() { printf '\n%s\n' "$*"; }
-die() { say "$*"; exit 1; }
+
+# BLACK BOX 2026-08-13: every stage stamps a line here so a frozen or
+# dead run can be autopsied instead of guessed about. Read it with:
+#   cat /tmp/vault-start.log
+TRACE=/tmp/vault-start.log
+trace() { printf '%s %s\n' "$(date '+%H:%M:%S')" "$*" >> "$TRACE"; }
+: > "$TRACE"
+trace "launcher started (pid $$)"
+trap 'trace "exited status=$?"' EXIT
+trap 'trace "interrupted (SIGINT / Ctrl+C)"; exit 130' INT
+trap 'trace "terminated (SIGTERM)"; exit 143' TERM
+
+die() { trace "FATAL: $*"; say "$*"; exit 1; }
 
 # native dialog when launched without a terminal (Linux double-click)
 if [ ! -t 0 ] && command -v zenity >/dev/null 2>&1; then
@@ -16,6 +28,7 @@ if [ ! -t 0 ] && command -v zenity >/dev/null 2>&1; then
          --text="Start the Vault Assistant?" || exit 0
 fi
 
+trace "running prechecks"
 # 1. curl: the health check needs it (minimal Debian/Ubuntu ships without)
 if ! command -v curl >/dev/null 2>&1; then
   die "curl not found. Install it and rerun:  sudo apt install curl"
@@ -135,9 +148,12 @@ choose_vault() {
   say "Vault set: $folder  (switch again on any run, or: make vault VAULT=demo)"
 }
 
+trace "vault choice starting"
 choose_vault
+trace "vault choice done: $(grep -E '^VAULT_PATH=' .env 2>/dev/null | tail -1 || echo demo)"
 
 # 5. start the stack, with the classic failures explained
+trace "compose up starting"
 say "Starting the stack — the first run downloads images and a basic local model (~4 GB)..."
 if ! docker compose up -d; then
   say "The stack failed to start. The two usual causes:"
@@ -153,12 +169,22 @@ fi
 #     from nothing, and no explanation. Now the launcher holds until
 #     the indexing finishes (or fails loudly).
 say "Indexing the vault (a first build takes about a minute)..."
+trace "waiting for ingest"
 # docker compose wait errors out when the one-shot ALREADY exited, so
-# the container is inspected directly by its fixed name instead
+# the container is inspected directly by its fixed name instead.
+# HEARTBEAT 2026-08-13: the wait narrates itself every ~10s, mirroring
+# the ingest's own progress - a silent screen reads as a hang.
+waited=0
 while [ "$(docker inspect -f '{{.State.Running}}' assistant_ingest 2>/dev/null)" = "true" ]; do
-  sleep 2
+  sleep 5
+  waited=$((waited + 5))
+  if [ $((waited % 10)) -eq 0 ]; then
+    last=$(docker logs assistant_ingest 2>&1 | grep -v "Warning" | tail -1 | cut -c1-70)
+    say "  still indexing (${waited}s)... ${last}"
+  fi
 done
 ingest_rc=$(docker inspect -f '{{.State.ExitCode}}' assistant_ingest 2>/dev/null || echo "")
+trace "ingest finished rc=${ingest_rc}"
 if [ "$ingest_rc" != "0" ]; then
   say "The vault indexing FAILED - the reason:"
   docker logs assistant_ingest 2>&1 | tail -3
@@ -177,16 +203,30 @@ until curl -fsS "http://localhost:${PORT}/_stcore/health" >/dev/null 2>&1; do
   if [ "$tries" -ge 150 ]; then
     die "The app did not come up after 5 minutes. Check: docker compose logs app"
   fi
-  [ $((tries % 15)) -eq 0 ] && say "Still starting (downloads in progress)..."
+  [ $((tries % 10)) -eq 0 ] && say "  still starting the app ($((tries * 2))s)..."
   sleep 2
 done
 
+trace "app healthy"
 say "Ready: http://localhost:${PORT}"
-# open the browser: xdg-open (Linux), open (macOS),
-# powershell.exe (WSL opens the Windows browser)
-if command -v xdg-open >/dev/null 2>&1; then xdg-open "http://localhost:${PORT}" >/dev/null 2>&1 || true
-elif command -v open >/dev/null 2>&1; then open "http://localhost:${PORT}" || true
-elif command -v powershell.exe >/dev/null 2>&1; then powershell.exe -NoProfile Start-Process "http://localhost:${PORT}" >/dev/null 2>&1 || true
+# open the browser, trying every door and LOGGING which one worked:
+# xdg-open (Linux), open (macOS), powershell by PATH, powershell by
+# absolute path, explorer.exe (the interop door that always exists) -
+# the delegated wsl session sometimes lacks the Windows PATH entries
+URL="http://localhost:${PORT}"
+if command -v xdg-open >/dev/null 2>&1 && xdg-open "$URL" >/dev/null 2>&1; then
+  trace "browser via xdg-open"
+elif command -v open >/dev/null 2>&1 && open "$URL" >/dev/null 2>&1; then
+  trace "browser via open"
+elif command -v powershell.exe >/dev/null 2>&1 && powershell.exe -NoProfile Start-Process "$URL" >/dev/null 2>&1; then
+  trace "browser via powershell (PATH)"
+elif [ -x /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe ] && /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile Start-Process "$URL" >/dev/null 2>&1; then
+  trace "browser via powershell (absolute path)"
+elif [ -x /mnt/c/Windows/explorer.exe ] && /mnt/c/Windows/explorer.exe "$URL" >/dev/null 2>&1; then
+  trace "browser via explorer.exe"
+else
+  trace "no browser opener worked - printed url only"
+  say "Could not open a browser automatically - open the address above yourself."
 fi
 
 say "No OpenAI key? The basic local model already answers."

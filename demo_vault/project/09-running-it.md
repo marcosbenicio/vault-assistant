@@ -11,12 +11,23 @@ everything described in [[02-architecture]].
 
 ## From clone to first answer
 
+Two doors, same house:
+
+1. **Automated** — no terminal at all. Double-click
+   `Start Assistant.bat` on Windows, or run `./start.sh` on
+   Debian/Ubuntu, macOS and WSL. The launcher checks the machine,
+   asks which vault to answer from, starts the stack, waits until the
+   index is actually built and opens the browser itself, narrating
+   every wait. Its whole design is in [[11-starting-automated]].
+2. **Manual** — two commands, for whoever lives in a terminal anyway
+   (the full toolbox is in [[12-starting-manual]]):
+
 ```bash
-git clone <repo> && cd obsidian-assistant
-docker compose up -d
+git clone https://github.com/marcosbenicio/vault-assistant
+cd vault-assistant && docker compose up -d
 ```
 
-That is the whole setup. No config file needs to exist: the compose
+Either way, no config file needs to exist: the compose
 carries a working default for every value, and the pieces assemble
 themselves during the first `up`, in order. Elasticsearch rises first
 (the other services wait on its healthcheck); the one-shot ingest
@@ -42,8 +53,9 @@ Everything after that is optional and one gesture each, in whatever
 order matters to you: a better local model (Download button in the
 sidebar), gpu acceleration (`cp docker-compose.gpu.yml
 docker-compose.override.yml`, section below), your own notes instead
-of the demo (`make vault VAULT=/abs/path`, section below), new
-content into the index (the Reingest button, or `make ingest`).
+of the demo (the launcher asks on every run; `make vault
+VAULT=/abs/path` from a terminal — section below), new content into
+the index (the Reingest button, or `make ingest`).
 
 The other services ride along at their own ports: Jupyter at 8888
 (the evaluation notebooks), Grafana at 3000, Elasticsearch at 9200,
@@ -61,7 +73,9 @@ be re-run.
 
 The `.env` file exists for overrides only, and every value has a
 sensible default without it: the api key (if you prefer it over the
-sidebar field), `VAULT_PATH` (written by `make vault`), `LLM_MODEL`
+sidebar field), `VAULT_PATH` (written for you by the launcher's vault
+question or by `make vault` — editing it by hand is never required),
+`LLM_MODEL`
 (the default selection in the app), `LLM_BASE_URL` (an external
 OpenAI-compatible server instead of the bundled ollama), and port
 overrides for machines where a default is taken. The environment
@@ -262,27 +276,27 @@ unvalidated, that the judge is off, that rerank downloads a model on
 first use. The principle is the same one the whole project follows:
 nothing silent, everything measured or stated.
 
-## The make targets
+## The command toolbox
 
-```
-make up / down        start and stop the stack
-make ingest           reindex the vault (the same one-shot up runs)
-make init-db          create the tables, idempotent
-make reset-db         rebuild the tables, ERASES the history
-make check-db         peek at the last conversations
-make reload-app       apply .env changes to the app
-make reload-notebook  same for jupyter (kills the kernel, save first)
-make logs / urls      follow the app logs, print the addresses
-```
+The make targets, the `.env` contract in full, and the database reset
+pattern live in [[12-starting-manual]]. The short version: `make up /
+down` start and stop the stack, `make ingest` reindexes, `make urls`
+prints every address.
 
 ## Adding and changing content
 
 Drop markdown files in the demo vault (subfolders work), run `make
-ingest`, ask about them: the index always mirrors the folder.
+ingest` or click Reingest, ask about them: the index always mirrors
+the folder.
 
 ## Pointing the assistant at your own notes
 
-One command switches from the demo to a real vault:
+The easiest way is the launcher itself: it asks which vault to answer
+from on every run, so switching is just answering differently next
+time — and it refuses a folder without markdown notes, with the demo
+and the current choice always offered as safe exits
+([[11-starting-automated]]). From a terminal, one command does the
+same:
 
 ```bash
 make vault VAULT=/mnt/c/Users/you/Documents/your-vault
@@ -290,23 +304,11 @@ make vault VAULT=/mnt/c/Users/you/Documents/your-vault
 
 It validates the path, writes `VAULT_PATH` into `.env`, reindexes
 your notes and recreates the app with the new mount; `make vault
-VAULT=demo` is the way back. The same can be done by hand, in three
-steps. First, set the path in `.env`:
-
-```
-VAULT_PATH=/mnt/c/Users/you/Documents/your-vault
-```
-
-Any folder of markdown files works; on WSL,
-a Windows path like `C:\Users\you` becomes `/mnt/c/Users/you`. Second,
-`make ingest`: the one-shot reads the new mount and rebuilds the index
-from your notes. Third, `make reload-app`, so the app container is
-recreated with the new mount too. Ask something only your notes know
-to confirm the switch. (These three steps are exactly what
-`make vault` runs for you in one command; on plain Windows without a
-POSIX shell, run the two docker compose commands directly:
-`docker compose run --rm ingest`, then
-`docker compose up -d --force-recreate app`.)
+VAULT=demo` is the way back. Any folder of markdown files works; on
+WSL, a Windows path like `C:\Users\you` becomes `/mnt/c/Users/you`.
+The three manual steps behind the shortcut (and their plain-Windows
+equivalents) are spelled out in [[12-starting-manual]]. Ask something
+only your notes know to confirm the switch.
 
 ## Using it with Obsidian
 
@@ -320,14 +322,15 @@ plugin is involved.
 
 The mount is read only, so the assistant can never modify a note, and
 it is safe to keep Obsidian open while the assistant reads: Obsidian
-edits the files, and the next `make ingest` picks the changes up. The
+edits the files, and the next `make ingest` (or the app's Reingest
+button) picks the changes up. The
 same applies to any tool that speaks the wikilink dialect — Logseq,
 Foam, Dendron, or a plain text editor.
 
-Coming back to the demo is the same in reverse: comment the
-`VAULT_PATH` line out, `make ingest`, `make reload-app`. In both modes
-the vault is mounted read only, so the assistant can never modify a
-note.
+Coming back to the demo is one answer in the launcher's dialog (the
+Demo button), or `make vault VAULT=demo` from a terminal. In both
+modes the vault is mounted read only, so the assistant can never
+modify a note.
 
 ## Reproducing the results
 

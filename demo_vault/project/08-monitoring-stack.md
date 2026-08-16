@@ -27,8 +27,8 @@ feedback  judgements
 
 The conversations table is deliberately rich, every column with a
 consumer waiting: question and answer, the llm that answered, the
-embedding model active, the search mode (fused today, rerank when the
-quality toggle lands), how many chunks were retrieved and which ones
+embedding model active, the search mode (whichever of the five the
+sidebar had selected), how many chunks were retrieved and which ones
 (a jsonb list with path, offset and score, the full retrieval trace
 for debugging any answer after the fact), tokens in and out, cost in
 dollars, retrieval time separated from total time, the channel that
@@ -52,10 +52,16 @@ block an answer, the observer never stops the show; the thumbs write
 whenever the user clicks. Each write opens one short-lived connection,
 the safe pattern under Streamlit reruns.
 
-Table creation is idempotent (`make init-db`, safe on every startup),
-and schema changes have an explicit destructive path (`make
-reset-db`), mirroring the recreate pattern of the search index: gentle
-by default, explicit when erasing.
+Table creation is idempotent and automatic: the app runs it on its
+own startup, so a fresh clone has the schema before the first
+question and no init step exists to forget (`make init-db` remains as
+the manual echo). Schema changes have an explicit destructive path,
+`make reset-db` — the `--recreate` flag of `db.py`, which drops the
+satellite tables first (they point at conversations by foreign key),
+then the fact table, then rebuilds everything — mirroring the
+recreate pattern of the search index: gentle by default, destruction
+only when asked by name. It erases the whole history, which is
+exactly why it is a separate command and never part of setup.
 
 ## Grafana
 

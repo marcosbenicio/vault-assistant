@@ -16,9 +16,10 @@ build:
 down:
 	docker compose down
 
-# stack plus the local LLM with NVIDIA acceleration (ollama profile)
+# stack with NVIDIA acceleration for the local models (one-off; the
+# persistent way is: cp docker-compose.gpu.yml docker-compose.override.yml)
 up-gpu:
-	docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile ollama up -d
+	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 
 # apply .env changes to the notebook service; kills the Jupyter kernel,
 # save first. A recreate is required: restart does not reread .env
@@ -41,7 +42,8 @@ theme-default:
 	rm -f assistant/.streamlit/config.toml
 	docker compose restart app
 
-# create the postgres tables (run once after the first up)
+# create the postgres tables by hand (the app already runs this on its
+# own startup; kept as the manual echo)
 init-db:
 	$(EXEC) python db.py
 
